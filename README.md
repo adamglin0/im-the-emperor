@@ -8,6 +8,8 @@
                                    御史台稽查百官 · 吏部配置与科举 · 户部预算与人事
 ```
 
+![御书房：待办奏折、国用、告警](docs/screenshots/live-home-light.png)
+
 ## 快速开始
 
 需要 Node.js ≥ 24 和 Docker（含 Compose v2）。
@@ -28,6 +30,17 @@ npm -w @court/web run build
 npx tsx scripts/dev-court.ts          # mock 模式，http://127.0.0.1:8001
 npx tsx scripts/smoke-real.ts         # 真实模型冒烟：一道小圣旨走完全流程
 ```
+
+## 界面一览
+
+<table>
+<tr><td width="50%"><img src="docs/screenshots/live-council.png" alt="政事堂：宰相议事，照准颁旨"><br><sub>政事堂：宰相议事，照准颁旨</sub></td><td width="50%"><img src="docs/screenshots/live-decree.png" alt="颁旨 · 口谕"><br><sub>颁旨 · 口谕</sub></td></tr>
+<tr><td width="50%"><img src="docs/screenshots/live-edict-light.png" alt="诏令调查：执行图与泳道时序"><br><sub>诏令调查：执行图与泳道时序</sub></td><td width="50%"><img src="docs/screenshots/live-edict-drawer.png" alt="诏令调查：节点详情"><br><sub>诏令调查：节点详情</sub></td></tr>
+<tr><td width="50%"><img src="docs/screenshots/live-court.png" alt="朝堂：百官实时状态"><br><sub>朝堂：百官实时状态</sub></td><td width="50%"><img src="docs/screenshots/live-official.png" alt="官员页：上下文、日志、宣召"><br><sub>官员页：上下文、日志、宣召</sub></td></tr>
+<tr><td width="50%"><img src="docs/screenshots/live-libu.png" alt="吏部铨选：配置与换模型"><br><sub>吏部铨选：配置与换模型</sub></td><td width="50%"><img src="docs/screenshots/live-exams.png" alt="科举：模型考试与金榜"><br><sub>科举：模型考试与金榜</sub></td></tr>
+<tr><td width="50%"><img src="docs/screenshots/live-ledger.png" alt="户部账本：用度与预算"><br><sub>户部账本：用度与预算</sub></td><td width="50%"><img src="docs/screenshots/live-censor.png" alt="御史台：稽查与弹劾"><br><sub>御史台：稽查与弹劾</sub></td></tr>
+<tr><td width="50%"><img src="docs/screenshots/live-schedules.png" alt="定时任务"><br><sub>定时任务</sub></td><td width="50%"><img src="docs/screenshots/live-home-dark.png" alt="深色主题"><br><sub>深色主题</sub></td></tr>
+</table>
 
 ## 架构
 
