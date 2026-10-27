@@ -88,8 +88,11 @@ export function buildApp(ctx: HubCtx, opts: AppOptions = {}): Hono {
   // 静态 Web：存在的文件直接返回，其余非 /api 路径回退 index.html（SPA）
   const webDir = resolve(opts.webDir ?? "packages/web/dist");
   const indexFile = join(webDir, "index.html");
-  if (existsSync(webDir)) app.use("/*", serveStatic({ root: webDir }));
+  // 带哈希的 assets 永久缓存；index.html 每次校验，重新部署后浏览器即拿到新版
+  const cacheHeader = (path: string) => (/\/assets\//.test(path) ? "public, max-age=31536000, immutable" : "no-cache");
+  if (existsSync(webDir)) app.use("/*", serveStatic({ root: webDir, onFound: (path, c) => c.header("Cache-Control", cacheHeader(path)) }));
   app.get("/*", (c) => {
+    c.header("Cache-Control", "no-cache");
     if (existsSync(indexFile)) return c.html(readFileSync(indexFile, "utf8"));
     return c.text("皇城 hub 运行中。Web 尚未构建（npm run build:web）。", 200);
   });

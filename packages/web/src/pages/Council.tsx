@@ -84,7 +84,7 @@ export default function CouncilPage() {
 function DelibList({ list, activeId, onSelect }: { list: QueryResult<Deliberation[]>; activeId: string | null; onSelect: (id: string | null) => void }) {
   const sorted = useMemo(() => [...(list.data ?? [])].sort((a, b) => b.updated_at - a.updated_at), [list.data]);
   return (
-    <Card title="议事" sub={list.data ? `${list.data.length} 场` : undefined} flush>
+    <Card title="议事" sub={list.data ? `${list.data.length} 场` : undefined} flush className="delib-card">
       {list.initial ? (
         <Loading />
       ) : list.data === undefined && list.error ? (

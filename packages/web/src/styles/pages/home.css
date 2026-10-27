@@ -274,6 +274,23 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+/* 与议事厅同高，列表在卡内滚动 */
+.delib-card {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 170px);
+}
+.delib-card .card-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@media (max-width: 860px) {
+  .delib-card {
+    max-height: 360px;
+  }
+}
 .delib-list {
   display: flex;
   flex-direction: column;

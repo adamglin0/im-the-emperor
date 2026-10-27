@@ -151,9 +151,11 @@ describe("皇帝端口 SPA 回退", () => {
         const res = await fetch(hub.emperorUrl + p);
         expect(res.status, p).toBe(200);
         expect(await res.text(), p).toContain("<div id=root>");
+        expect(res.headers.get("cache-control"), p).toBe("no-cache"); // 部署后立即拿到新版
       }
       const js = await fetch(hub.emperorUrl + "/assets/app.js");
       expect(await js.text()).toBe("console.log(1)");
+      expect(js.headers.get("cache-control")).toContain("immutable");
       const api = await fetch(hub.emperorUrl + "/api/nope");
       expect(api.status).toBe(404);
       expect((await api.json()).code).toBe("not_found");
