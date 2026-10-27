@@ -6,6 +6,7 @@ import type { DeliberationDetail } from "@court/shared/api";
 import { hub } from "../api/client.ts";
 import { useRegistry } from "../api/registry.tsx";
 import { Addr, TimeAgo } from "../components/Addr.tsx";
+import { AttachButton, AttachmentList, attachmentRefs, useAttachments } from "../components/Attachments.tsx";
 import { Card, PageHead } from "../components/Card.tsx";
 import { Seal } from "../components/Seal.tsx";
 import { Empty, ErrorBox, Loading } from "../components/States.tsx";
@@ -251,13 +252,18 @@ function Speech({ e, chair }: { e: CouncilEntry; chair?: string }) {
 
 function Composer({ deliberation, onCreated, onSent }: { deliberation?: Deliberation; onCreated: (id: string) => void; onSent: () => void }) {
   const [text, setText] = useState("");
+  const att = useAttachments("council");
   const { run, pending } = useAction();
+  const hasReady = att.list.some((a) => a.state === "ready");
+  const canSend = !pending && !att.uploading && (!!text.trim() || hasReady);
   const send = async () => {
-    const content = text.trim();
-    if (!content) return;
+    if (!canSend) return;
+    const refs = attachmentRefs(att.list);
+    const content = (text.trim() || "朕附文书数件，诸卿阅之。") + refs;
     const res = await run(() => hub.emperorCouncil({ content, deliberation_id: deliberation?.id }), deliberation ? "圣谕已宣于堂" : "已开新议");
     if (!res) return;
     setText("");
+    att.clear();
     if (!deliberation || res.deliberation.id !== deliberation.id) onCreated(res.deliberation.id);
     else onSent();
   };
@@ -267,11 +273,12 @@ function Composer({ deliberation, onCreated, onSent }: { deliberation?: Delibera
       : "议已毕；陛下再言则就此续议"
     : "陛下所言即为议题";
   return (
-    <div className="composer">
+    <div className={`composer ${att.dragging ? "dragging" : ""}`} {...att.dropProps}>
       <textarea
         placeholder={deliberation ? "朕意如何……" : "朕有一事，与诸卿议之……"}
         value={text}
         onChange={(e) => setText(e.target.value)}
+        onPaste={att.onPaste}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
@@ -279,9 +286,11 @@ function Composer({ deliberation, onCreated, onSent }: { deliberation?: Delibera
           }
         }}
       />
+      <AttachmentList list={att.list} onRemove={att.remove} />
       <div className="row">
-        <span className="muted small grow">{hint} · ⌘/Ctrl + Enter 宣谕</span>
-        <button className="btn primary" disabled={pending || !text.trim()} onClick={send}>
+        <span className="muted small grow">{hint} · 可粘贴或拖入文件 · ⌘/Ctrl + Enter 宣谕</span>
+        <AttachButton onFiles={att.add} />
+        <button className="btn primary" disabled={!canSend} onClick={send}>
           <span className="display">谕</span> {deliberation ? "宣谕于堂" : "开议"}
         </button>
       </div>

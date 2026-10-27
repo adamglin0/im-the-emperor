@@ -453,6 +453,48 @@
 .composer .row {
   margin-top: 8px;
 }
+.composer.dragging {
+  outline: 2px dashed var(--vermilion);
+  outline-offset: -6px;
+}
+.attach-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--panel);
+  font-size: 12px;
+}
+.attach-chip .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+.attach-chip.uploading {
+  opacity: 0.7;
+}
+.attach-chip.failed {
+  border-color: var(--vermilion);
+}
+.attach-chip button {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  padding: 0 4px;
+  font-size: 14px;
+  line-height: 1;
+}
 
 .turn-panel .tp-row {
   display: flex;

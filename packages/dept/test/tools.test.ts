@@ -617,3 +617,35 @@ describe("全工具冒烟", () => {
     }
   });
 });
+
+describe("asset_read 图片", () => {
+  const asset = (mime: string, size: number) => ({
+    id: "as_img",
+    owner: "court",
+    path: "council/a.png",
+    visibility: "court",
+    shared_with: [],
+    mime,
+    size,
+    sha256: "x",
+    latest_version: 1,
+    created_at: now,
+    updated_at: now,
+  });
+
+  it("小图片以 image 内容交给模型", async () => {
+    const c = makeCtx({ hub: { asset: () => ({ asset: asset("image/png", 3), version: 1, content: "AAAA", encoding: "base64" }) } });
+    const r = await run(c, "asset_read", { asset_id: "as_img" });
+    expect(r.isError).toBeFalsy();
+    expect(r.content[1]).toEqual({ type: "image", data: "AAAA", mimeType: "image/png" });
+  });
+
+  it("非图片二进制或超大图片仍只给说明", async () => {
+    for (const a of [asset("application/pdf", 3), asset("image/png", 10 * 1024 * 1024)]) {
+      const c = makeCtx({ hub: { asset: () => ({ asset: a, version: 1, content: "AAAA", encoding: "base64" }) } });
+      const r = await run(c, "asset_read", { asset_id: "as_img" });
+      expect(r.content).toHaveLength(1);
+      expect(text(r)).toContain("二进制");
+    }
+  });
+});
