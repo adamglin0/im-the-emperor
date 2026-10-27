@@ -179,6 +179,24 @@ describe("官员运行时", () => {
     expect(o.status().state).not.toBe("suspended");
   });
 
+  it("停俸后预算变更：控制面通知即复查并复职", async () => {
+    const dir = tmpDataDir();
+    const hub = new FakeHub(dir);
+    const model = scriptedModel();
+    rt = makeRuntime(hub, model);
+    await rt.start();
+    hub.addMessage(POST, { from: "emperor", kind: "oral_order", body: "审" });
+    model.push(errorMsg("Proxy error: BUDGET_EXCEEDED: 今日预算已用尽"));
+    rt.doorbell([POST]);
+    const o = rt.officials.get(POST)!;
+    await until(() => o.status().state === "suspended");
+    hub.budgetAllowed = true;
+    model.push(toolCallMsg("end_turn", { note: "已审" }));
+    rt.recheckBudget();
+    await until(() => model.calls.length === 2 && hub.acks.length === 1);
+    expect(o.status().state).not.toBe("suspended");
+  });
+
   it("模型服务故障：抱恙（sick）退避，不推进 cursor", async () => {
     const dir = tmpDataDir();
     const hub = new FakeHub(dir);

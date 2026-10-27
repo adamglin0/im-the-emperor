@@ -227,6 +227,11 @@ export function createDeptApp(rt: DeptRuntime, opts: DeptAppOptions): Hono {
     return c.json({ ok: true });
   });
 
+  app.post("/control/budget", (c) => {
+    rt.recheckBudget();
+    return c.json({ ok: true });
+  });
+
   app.post("/control/compact/:post", (c) => {
     if (!rt.compact(c.req.param("post"))) return err(c, 404, "not_found", `职位 ${c.req.param("post")} 当前无人在任`);
     return c.json({ ok: true });

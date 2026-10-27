@@ -1,6 +1,7 @@
 // 账本与预算：网关记账（幂等）、四级日额（global/dept/post/trace × token/成本）检查、熔断告警。
 import { dayStart, newId, type Address, type Budget, type BudgetCheck, type LedgerEntry } from "@court/shared";
 import { bad, forbidden, type HubCtx, type LedgerService } from "../ctx.ts";
+import { controlAll } from "./doorbell.ts";
 import { getMeta, setMeta } from "./registry.ts";
 import type { MessageServiceExt } from "./messages.ts";
 
@@ -240,6 +241,11 @@ export function createLedger(ctx: HubCtx): LedgerServiceExt {
     if (p.daily_cost != null) next.daily_cost = p.daily_cost;
     writeBudget(next);
     ctx.events.emit({ type: "budget.set", actor: "emperor", subject_type: "budget", subject_id: p.scope, summary: `准奏调整预算 ${p.scope}` });
+  });
+
+  // 预算一变（官员核定 / 准奏 / 增拨）即通知各部：停俸者立即复查，不必等 10 分钟
+  ctx.events.subscribe((e) => {
+    if (e.type === "budget.set") controlAll(ctx, "/control/budget", {});
   });
 
   // 熔断待办「增拨」：当日额度翻倍

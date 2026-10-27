@@ -371,6 +371,11 @@ export class DeptRuntime {
     for (const [p, o] of this.officials) if (!posts?.length || posts.includes(p)) o.resume();
   }
 
+  /** 预算有变：停俸者立即复查 */
+  recheckBudget(): void {
+    for (const o of this.officials.values()) o.recheckBudget();
+  }
+
   compact(post: string): boolean {
     const o = this.officials.get(post);
     if (!o) return false;

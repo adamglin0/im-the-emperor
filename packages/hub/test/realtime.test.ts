@@ -154,6 +154,12 @@ describe("事件、SSE、心跳、皇帝核心、实时代理", () => {
     expect(seen.some((s) => s.url === "/control/pause")).toBe(true);
     expect((await hub.as("zhongshu.sheren_a").heartbeat([])).halted).toBe(true);
     await hub.emperor.halt(false);
+
+    // 预算一变即通知各部复查停俸
+    seen.length = 0;
+    await hub.emperor.setBudget({ actor: "emperor", scope: "post:zhongshu.sheren_a", daily_tokens: 50_000 });
+    await new Promise((ok) => setTimeout(ok, 100));
+    expect(seen.some((s) => s.url === "/control/budget")).toBe(true);
   });
 
   it("实时代理：context / log / stream / wake / compact / dept", async () => {

@@ -439,6 +439,13 @@ export class OfficialRuntime implements ToolContext {
     this.resumeSignal.kick("manual");
   }
 
+  /** 预算有变：停俸者立即复查（仍超额则继续停俸） */
+  recheckBudget(): void {
+    if (this.blocked?.state !== "suspended") return;
+    this.blocked.until = Date.now();
+    this.resumeSignal.kick("budget");
+  }
+
   pause(reason: string): void {
     this.localPause = reason;
     this.publishState();
