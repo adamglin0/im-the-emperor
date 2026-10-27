@@ -1,0 +1,30 @@
+# 模型池。key = provider/model_id。首次启动播种；之后皇帝可在 Web「科举」页添加。
+# provider 为 pi-ai 内置 provider id（如 opencode-go），或 custom（需 api/base_url，密钥 env 由 key_env 指定）。
+default_model: opencode-go/deepseek-v4.1-flash
+# 阅卷与压缩摘要使用的模型（固定，避免候选模型自评）
+grader_model: opencode-go/deepseek-v4-pro
+summary_model: opencode-go/deepseek-v4.1-flash
+models:
+  - { provider: opencode-go, model_id: deepseek-v4.1-flash, name: DeepSeek V4.1 Flash, status: examined }
+  - { provider: opencode-go, model_id: deepseek-v4-pro, name: DeepSeek V4 Pro, status: candidate }
+  - { provider: opencode-go, model_id: glm-5.3-flash, name: GLM 5.3 Flash, status: candidate }
+  - { provider: opencode-go, model_id: qwen3.8-flash, name: Qwen3.8 Flash, status: candidate }
+  - { provider: opencode-go, model_id: mimo-v2.6-flash, name: MiMo V2.6 Flash, status: candidate }
+  - { provider: opencode-go, model_id: kimi-k3, name: Kimi K3, status: candidate }
+  - { provider: opencode-go, model_id: minimax-m3, name: MiniMax M3, status: candidate }
+  - { provider: opencode-go, model_id: claude-haiku-5-5, name: Claude Haiku 5.5, status: candidate }
+# 部门适配权重：各维度分数 × 权重 → 部门适配度（0..100）
+fitness_weights:
+  zhengshitang: { reasoning: 3, instruction: 2, writing: 2, summary: 2, tool_use: 1 }
+  zhongshu: { writing: 3, instruction: 2, json: 1, reasoning: 1, tool_use: 1 }
+  menxia: { reasoning: 3, instruction: 2, writing: 1, tool_use: 1 }
+  shangshu: { reasoning: 2, json: 2, tool_use: 2, instruction: 2 }
+  libu: { instruction: 2, writing: 1, reasoning: 2, tool_use: 1 }
+  hubu: { reasoning: 2, json: 2, tool_use: 2 }
+  libu_rites: { writing: 3, translation: 3, instruction: 1 }
+  bingbu: { tool_use: 3, code: 2, instruction: 1 }
+  xingbu: { code: 3, reasoning: 2, tool_use: 2 }
+  gongbu: { code: 3, tool_use: 2, writing: 1 }
+  yushitai: { reasoning: 3, summary: 2, tool_use: 1 }
+# 任命门槛：适配度低于此值，户部任命须皇帝批准
+fitness_threshold: 60

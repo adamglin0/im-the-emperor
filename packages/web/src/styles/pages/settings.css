@@ -1,0 +1,307 @@
+/* 设置 · 模型提供商（弹窗/抽屉经 portal 挂到 body，故类名不加页面前缀） */
+.set-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  font-family: var(--font-serif);
+  background: var(--gold-soft);
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent);
+  border-radius: var(--radius-lg);
+}
+.set-note code {
+  word-break: break-all;
+}
+.settings-page .card-head {
+  flex-wrap: wrap;
+}
+.set-search {
+  width: 220px !important;
+  max-width: 100%;
+  min-height: 28px !important;
+  padding: 3px 8px !important;
+  font-size: 12.5px;
+}
+
+.prov-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 12px;
+}
+.prov-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule-strong);
+  border-radius: var(--radius-lg);
+}
+.prov-tile.on {
+  border-left-color: var(--jade);
+}
+.prov-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.prov-name {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  word-break: break-word;
+}
+.prov-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.prov-kv {
+  font-size: 12.5px;
+}
+.prov-codes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.prov-codes code {
+  padding: 0 5px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--panel);
+  font-size: 11px;
+  word-break: break-all;
+}
+.prov-url {
+  word-break: break-all;
+}
+.prov-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px dashed var(--rule);
+}
+.jade-ink {
+  color: var(--jade);
+}
+.bad-ink {
+  color: var(--bad);
+}
+.warn-ink {
+  color: var(--warn);
+}
+.nowrap {
+  white-space: nowrap;
+}
+
+/* 登录会话 */
+.login-events {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.login-ev {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+  word-break: break-word;
+}
+.login-ev.progress {
+  color: var(--ink-2);
+}
+.login-at {
+  flex: none;
+}
+.login-ev.box {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--rule-strong);
+  border-left: 3px solid var(--gold-bright);
+  border-radius: var(--radius);
+}
+.login-url {
+  color: var(--ink-3);
+  word-break: break-all;
+  max-height: 3.2em;
+  overflow: hidden;
+}
+.login-instr {
+  white-space: pre-wrap;
+}
+.device-code {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.device-code .mono {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--vermilion);
+  word-break: break-all;
+}
+.brush-inline {
+  display: inline-block;
+  width: 26px;
+  height: 2px;
+  margin-left: 8px;
+  vertical-align: middle;
+  background: linear-gradient(90deg, transparent, var(--ink-2), transparent);
+  animation: brush 1.1s ease-in-out infinite;
+}
+.login-prompt {
+  padding: 12px;
+  border: 1px solid var(--gold-bright);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--gold-soft) 45%, var(--panel));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.login-q {
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.login-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.login-opt {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 8px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.login-opt.on {
+  border-color: var(--gold-bright);
+}
+.login-final {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  font-family: var(--font-serif);
+  word-break: break-word;
+}
+.login-final.ok {
+  background: var(--jade-soft);
+}
+.login-final.bad {
+  background: color-mix(in srgb, var(--vermilion-soft) 70%, transparent);
+}
+
+/* 测试 */
+.test-res {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--rule);
+  background: var(--panel-2);
+}
+.test-res.ok {
+  border-color: color-mix(in srgb, var(--jade) 45%, transparent);
+}
+.test-res.bad {
+  border-color: color-mix(in srgb, var(--bad) 45%, transparent);
+}
+.test-text {
+  max-height: 200px;
+  word-break: break-word;
+}
+
+/* 模型目录 */
+.models-tbl td {
+  vertical-align: middle;
+}
+
+/* 自定义提供商表单 */
+.set-sub {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+  margin-bottom: 10px;
+}
+.set-sub h3 {
+  font-family: var(--font-serif);
+  margin-bottom: 8px;
+}
+.mrow {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  padding: 8px 10px 0;
+  background: var(--panel-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+.mrow .field {
+  margin-bottom: 8px;
+  min-width: 0;
+}
+.mrow-flags {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.hrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.set-errs {
+  margin: 10px 0 0;
+  padding: 8px 12px 8px 28px;
+  color: var(--bad);
+  border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--vermilion-soft) 40%, transparent);
+}
+
+@media (max-width: 720px) {
+  .mrow {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .mrow-flags {
+    grid-column: 1 / -1;
+  }
+  .hrow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .hrow input[type="password"] {
+    grid-column: 1 / 2;
+    grid-row: 2;
+  }
+  .set-search {
+    width: 100% !important;
+  }
+}

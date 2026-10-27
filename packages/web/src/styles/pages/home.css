@@ -1,0 +1,612 @@
+/* 御书房 · 政事堂 · 颁旨 */
+
+/* ───────── 御书房 ───────── */
+.home-stats {
+  margin-bottom: 18px;
+}
+.home-stats .stat-sub .tag {
+  margin-right: 4px;
+}
+.home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 18px;
+  align-items: start;
+}
+.home-side > * + * {
+  margin-top: 16px;
+}
+@media (max-width: 1180px) {
+  .home-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.notif-section + .notif-section {
+  margin-top: 18px;
+}
+.notif-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-serif);
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  color: var(--ink-2);
+  margin: 0 0 8px;
+}
+.notif-section-title::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--rule-strong), transparent);
+}
+.notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.notif {
+  position: relative;
+  padding: 12px 16px 12px;
+  overflow: hidden;
+}
+.notif-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.notif-title {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.45;
+}
+.notif-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+.notif-body {
+  margin: 8px 0 0 46px;
+  color: var(--ink-2);
+}
+.notif-body .prose {
+  font-size: 13.5px;
+  line-height: 1.75;
+}
+.notif-body.collapsed {
+  max-height: 5.4em;
+  overflow: hidden;
+  mask-image: linear-gradient(180deg, #000 60%, transparent);
+}
+.notif-actions {
+  margin: 10px 0 0 46px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.notif-actions textarea {
+  min-height: 40px;
+  font-size: 13px;
+}
+.notif.resolving {
+  opacity: 0.75;
+}
+.notif .stamp-overlay {
+  position: absolute;
+  right: 26px;
+  top: 50%;
+  margin-top: -36px;
+  pointer-events: none;
+  z-index: 2;
+}
+.notif.leaving {
+  animation: notif-out 0.5s 0.8s ease-in forwards;
+}
+@keyframes notif-out {
+  to {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+}
+
+.resolved-list summary {
+  cursor: pointer;
+  font-family: var(--font-serif);
+  color: var(--ink-3);
+  font-size: 13px;
+  padding: 6px 0;
+  list-style: none;
+}
+.resolved-list summary::before {
+  content: "▸ ";
+}
+.resolved-list[open] summary::before {
+  content: "▾ ";
+}
+.resolved-row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 2px;
+  border-bottom: 1px dashed var(--rule);
+  font-size: 13px;
+}
+
+/* 诏令卡 */
+.edict-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+.edict-card {
+  padding: 12px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-decoration: none !important;
+  color: inherit;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.edict-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-2);
+}
+.edict-card .ec-title {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.edict-card .ec-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.edict-card.blocked {
+  border-top-color: var(--vermilion);
+  border-bottom-color: var(--vermilion);
+}
+.budget-meter {
+  height: 4px;
+  background: var(--rule);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.budget-meter > i {
+  display: block;
+  height: 100%;
+  background: var(--gold-bright);
+}
+.budget-meter.over > i {
+  background: var(--vermilion);
+}
+
+/* 仪表 */
+.gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.gauge svg {
+  width: 200px;
+  height: 116px;
+}
+.gauge .gauge-val {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  margin-top: -40px;
+}
+.gauge .gauge-sub {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-top: 2px;
+  text-align: center;
+}
+
+.alert-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--rule);
+  font-size: 13px;
+}
+.alert-row:last-child {
+  border-bottom: 0;
+}
+
+.inbox-row {
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--rule);
+}
+.inbox-row:last-child {
+  border-bottom: 0;
+}
+.inbox-row .ir-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12.5px;
+}
+.inbox-row .ir-body {
+  font-family: var(--font-serif);
+  font-size: 13px;
+  color: var(--ink-2);
+  margin-top: 3px;
+}
+
+.halt-btn {
+  min-width: 112px;
+}
+.halt-btn.on {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+/* ───────── 政事堂 ───────── */
+.council {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 300px;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1280px) {
+  .council {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .council .council-side {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 860px) {
+  .council {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.delib-list {
+  display: flex;
+  flex-direction: column;
+}
+.delib-item {
+  display: block;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+  text-decoration: none !important;
+  color: inherit;
+  position: relative;
+}
+.delib-item:hover {
+  background: var(--panel-2);
+}
+.delib-item.active {
+  background: color-mix(in srgb, var(--vermilion-soft) 55%, transparent);
+}
+.delib-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--vermilion);
+}
+.delib-item .di-topic {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.delib-item .di-meta {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  align-items: center;
+  margin-top: 3px;
+}
+.delib-item .di-meta span {
+  white-space: nowrap;
+}
+
+.hall {
+  display: flex;
+  flex-direction: column;
+  min-height: 560px;
+  max-height: calc(100vh - 170px);
+}
+.hall-head {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.hall-head h2 {
+  font-size: 18px;
+}
+.transcript {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px 24px;
+  background:
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--gold-soft) 40%, transparent), transparent 60%);
+}
+.round-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 10px;
+  color: var(--ink-3);
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.3em;
+}
+.round-divider::before,
+.round-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--rule-strong), transparent);
+}
+.speech {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0;
+  max-width: 86%;
+  animation: page-in 0.3s ease-out both;
+}
+.speech.emperor {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+.speech .avatar {
+  flex: none;
+  margin-top: 4px;
+}
+.speech .bubble {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 2px 10px 10px 10px;
+  padding: 8px 12px 10px;
+  box-shadow: var(--shadow-1);
+  min-width: 0;
+}
+.speech.emperor .bubble {
+  border-radius: 10px 2px 10px 10px;
+  background: color-mix(in srgb, var(--vermilion-soft) 70%, var(--panel));
+  border-color: color-mix(in srgb, var(--vermilion) 30%, transparent);
+}
+.speech .who {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-bottom: 3px;
+  flex-wrap: wrap;
+}
+.speech .who b {
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 13px;
+}
+.speech.emperor .who {
+  justify-content: flex-end;
+}
+.speech .text {
+  font-family: var(--font-serif);
+  line-height: 1.8;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.speech .stance {
+  flex: none;
+  align-self: center;
+}
+.speaking-now {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--ink-3);
+  font-family: var(--font-serif);
+  font-size: 13px;
+  padding: 6px 0 0 4px;
+}
+.ink-dots span {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin: 0 1px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  animation: pulse 1.2s infinite;
+}
+.ink-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.ink-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+.composer {
+  border-top: 1px solid var(--rule);
+  padding: 10px 14px 12px;
+  background: var(--panel-2);
+}
+.composer textarea {
+  min-height: 64px;
+}
+.composer .row {
+  margin-top: 8px;
+}
+
+.turn-panel .tp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  padding: 4px 0;
+}
+.queue {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.member-card {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--rule);
+}
+.member-card:last-child {
+  border-bottom: 0;
+}
+.member-card.speaking .mc-name {
+  color: var(--vermilion);
+}
+.mc-name {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 13.5px;
+}
+.mc-sub {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.conclusion .cc-summary {
+  font-family: var(--font-serif);
+  line-height: 1.85;
+  font-size: 14px;
+}
+.conclusion .cc-block {
+  margin-top: 10px;
+}
+.conclusion .cc-label {
+  font-size: 12px;
+  color: var(--ink-3);
+  font-family: var(--font-serif);
+  letter-spacing: 0.15em;
+  margin-bottom: 2px;
+}
+.confidence {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--rule);
+  overflow: hidden;
+}
+.confidence > i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold-bright), var(--jade));
+}
+
+/* ───────── 颁旨 ───────── */
+.decree-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .decree-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.edict-form .intent-box textarea {
+  min-height: 150px;
+  font-size: 15px;
+  line-height: 1.9;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 27px, color-mix(in srgb, var(--vermilion) 10%, transparent) 27px 28px),
+    var(--panel);
+}
+.edict-form .title-input {
+  font-family: var(--font-serif);
+  font-size: 16px;
+}
+.mochi {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px dashed var(--rule-strong);
+  border-radius: var(--radius);
+  margin: 4px 0 12px;
+}
+.mochi.on {
+  border: 1px solid var(--ink);
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.mochi .warn {
+  color: var(--vermilion);
+  font-size: 12.5px;
+  margin-top: 4px;
+}
+.chat-panel {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  min-height: 460px;
+}
+@media (max-width: 860px) {
+  .chat-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.chat-contacts {
+  border-right: 1px solid var(--rule);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chat-contact {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 13px;
+}
+.chat-contact:hover {
+  background: var(--panel-2);
+}
+.chat-contact.active {
+  background: var(--gold-soft);
+}
+.chat-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.chat-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 18px;
+  max-height: 460px;
+  min-height: 300px;
+}
+.chat-head {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}

@@ -1,0 +1,564 @@
+# 由 scripts/gen-compose.mjs 根据 config/court.yaml 生成，请勿手改（改名册后重新生成）。
+# 先运行 scripts/court.sh init 生成 .env（随机 token）；mock 演练：scripts/court.sh mock-up
+name: im-the-emperor
+services:
+  hub:
+    image: court-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    hostname: hub
+    environment:
+      ROLE: hub
+      PORT: "8000"
+      DATA_DIR: /data
+      CONFIG_DIR: /config
+      WEB_DIR: /app/web
+      EMPEROR_PORT: "8001"
+      HUB_DB_PATH: /data/hub-db/court.db
+      GATEWAY_URL: http://gateway:8100
+      LLM_MODE: ${LLM_MODE:-real}
+      GATEWAY_TOKEN: ${GATEWAY_TOKEN:?请先运行 scripts/court.sh init 生成 .env}
+      GATEWAY_ADMIN_TOKEN: ${GATEWAY_ADMIN_TOKEN:?请先运行 scripts/court.sh init 补充 .env}
+      CONTROL_TOKEN: ${CONTROL_TOKEN:?请先运行 scripts/court.sh init 生成 .env}
+      SANDBOX_TOKEN: ${SANDBOX_TOKEN:?请先运行 scripts/court.sh init 生成 .env}
+    ports:
+      - 127.0.0.1:8001:8001
+    volumes:
+      - ./data/hub:/data/hub
+      - ${HUB_DB_STORE:-./data/hub-db}:/data/hub-db
+      - ./data/shared:/data/shared
+      - ./config:/config:ro
+    networks:
+      - court
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+  gateway:
+    image: court-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    hostname: gateway
+    environment:
+      ROLE: gateway
+      PORT: "8100"
+      DATA_DIR: /data
+      CONFIG_DIR: /config
+      HUB_URL: http://hub:8000
+      LLM_MODE: ${LLM_MODE:-real}
+      GATEWAY_TOKEN: ${GATEWAY_TOKEN:?请先运行 scripts/court.sh init 生成 .env}
+      GATEWAY_ADMIN_TOKEN: ${GATEWAY_ADMIN_TOKEN:?请先运行 scripts/court.sh init 补充 .env}
+      OPENCODE_API_KEY: ${OPENCODE_API_KEY:-}
+      GATEWAY_MAX_CONCURRENCY: ${GATEWAY_MAX_CONCURRENCY:-6}
+      NODE_USE_ENV_PROXY: "1"
+      NO_PROXY: hub,gateway,sandbox,localhost,127.0.0.1
+    env_file:
+      - path: .env.providers
+        required: false
+    volumes:
+      - ./data/gateway:/data/gateway
+      - ./data/shared:/data/shared:ro
+      - ./config:/config:ro
+      - ${PI_AUTH_FILE:-${HOME}/.pi/agent/auth.json}:/secrets/pi-auth.json:ro
+    networks:
+      - court
+    depends_on: &a1
+      hub:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8100/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+  sandbox:
+    image: court-sandbox:latest
+    build:
+      context: .
+      dockerfile: docker/sandbox.Dockerfile
+      args:
+        DEBIAN_MIRROR: ${DEBIAN_MIRROR:-}
+    hostname: sandbox
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    environment:
+      PORT: "8200"
+      SANDBOX_ROOT: /workspaces
+      SANDBOX_TOKEN: ${SANDBOX_TOKEN:?请先运行 scripts/court.sh init 生成 .env}
+    volumes:
+      - ${SANDBOX_WORKSPACES:-./data/sandbox}:/workspaces
+    networks:
+      - armory
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+      - KILL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 256
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8200/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+  dept-zhengshitang:
+    image: court-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    hostname: dept-zhengshitang
+    environment:
+      ROLE: dept
+      DEPT: zhengshitang
+      PORT: "8080"
+      DATA_DIR: /data
+      CONFIG_DIR: /config
+      HUB_URL: http://hub:8000
+      GATEWAY_URL: http://gateway:8100
+    volumes:
+      - ./data/officials:/data/officials
+      - ./data/depts/zhengshitang:/data/depts/zhengshitang
+      - ./data/shared:/data/shared:ro
+      - ./config:/config:ro
+    networks:
+      court:
+        aliases:
+          - dept-zhengshitang
+    depends_on: *a1
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+  dept-zhongshu:
+    image: court-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    hostname: dept-zhongshu
+    environment:
+      ROLE: dept
+      DEPT: zhongshu
+      PORT: "8080"
+      DATA_DIR: /data
+      CONFIG_DIR: /config
+      HUB_URL: http://hub:8000
+      GATEWAY_URL: http://gateway:8100
+    volumes:
+      - ./data/officials:/data/officials
+      - ./data/depts/zhongshu:/data/depts/zhongshu
+      - ./data/shared:/data/shared:ro
+      - ./config:/config:ro
+    networks:
+      court:
+        aliases:
+          - dept-zhongshu
+    depends_on: *a1
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+  dept-menxia:
+    image: court-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    hostname: dept-menxia
+    environment:
+      ROLE: dept
+      DEPT: menxia
+      PORT: "8080"
+      DATA_DIR: /data
+      CONFIG_DIR: /config
+      HUB_URL: http://hub:8000
+      GATEWAY_URL: http://gateway:8100
+    volumes:
+      - ./data/officials:/data/officials
+      - ./data/depts/menxia:/data/depts/menxia
+      - ./data/shared:/data/shared:ro
+      - ./config:/config:ro
+    networks:
+      court:
+        aliases:
+          - dept-menxia
+    depends_on: *a1
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+  dept-shangshu:
+    image: court-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    hostname: dept-shangshu
+    environment:
+      ROLE: dept
+      DEPT: shangshu
+      PORT: "8080"
+      DATA_DIR: /data
+      CONFIG_DIR: /config
+      HUB_URL: http://hub:8000
+      GATEWAY_URL: http://gateway:8100
+    volumes:
+      - ./data/officials:/data/officials
+      - ./data/depts/shangshu:/data/depts/shangshu
+      - ./data/shared:/data/shared:ro
+      - ./config:/config:ro
+    networks:
+      court:
+        aliases:
+          - dept-shangshu
+    depends_on: *a1
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+  dept-libu:
+    image: court-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    hostname: dept-libu
+    environment:
+      ROLE: dept
+      DEPT: libu
+      PORT: "8080"
+      DATA_DIR: /data
+      CONFIG_DIR: /config
+      HUB_URL: http://hub:8000
+      GATEWAY_URL: http://gateway:8100
+    volumes:
+      - ./data/officials:/data/officials
+      - ./data/depts/libu:/data/depts/libu
+      - ./data/shared:/data/shared:ro
+      - ./config:/config:ro
+    networks:
+      court:
+        aliases:
+          - dept-libu
+    depends_on: *a1
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+  dept-hubu:
+    image: court-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    hostname: dept-hubu
+    environment:
+      ROLE: dept
+      DEPT: hubu
+      PORT: "8080"
+      DATA_DIR: /data
+      CONFIG_DIR: /config
+      HUB_URL: http://hub:8000
+      GATEWAY_URL: http://gateway:8100
+    volumes:
+      - ./data/officials:/data/officials
+      - ./data/depts/hubu:/data/depts/hubu
+      - ./data/shared:/data/shared:ro
+      - ./config:/config:ro
+    networks:
+      court:
+        aliases:
+          - dept-hubu
+    depends_on: *a1
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+  dept-libu-rites:
+    image: court-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    hostname: dept-libu-rites
+    environment:
+      ROLE: dept
+      DEPT: libu_rites
+      PORT: "8080"
+      DATA_DIR: /data
+      CONFIG_DIR: /config
+      HUB_URL: http://hub:8000
+      GATEWAY_URL: http://gateway:8100
+    volumes:
+      - ./data/officials:/data/officials
+      - ./data/depts/libu_rites:/data/depts/libu_rites
+      - ./data/shared:/data/shared:ro
+      - ./config:/config:ro
+    networks:
+      court:
+        aliases:
+          - dept-libu-rites
+    depends_on: *a1
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+  dept-bingbu:
+    image: court-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    hostname: dept-bingbu
+    environment:
+      ROLE: dept
+      DEPT: bingbu
+      PORT: "8080"
+      DATA_DIR: /data
+      CONFIG_DIR: /config
+      HUB_URL: http://hub:8000
+      GATEWAY_URL: http://gateway:8100
+      SANDBOX_URL: http://sandbox:8200
+    volumes:
+      - ./data/officials:/data/officials
+      - ./data/depts/bingbu:/data/depts/bingbu
+      - ./data/shared:/data/shared:ro
+      - ./config:/config:ro
+    networks:
+      court:
+        aliases:
+          - dept-bingbu
+      armory:
+        aliases:
+          - dept-bingbu
+    depends_on: *a1
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+  dept-xingbu:
+    image: court-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    hostname: dept-xingbu
+    environment:
+      ROLE: dept
+      DEPT: xingbu
+      PORT: "8080"
+      DATA_DIR: /data
+      CONFIG_DIR: /config
+      HUB_URL: http://hub:8000
+      GATEWAY_URL: http://gateway:8100
+      SANDBOX_URL: http://sandbox:8200
+    volumes:
+      - ./data/officials:/data/officials
+      - ./data/depts/xingbu:/data/depts/xingbu
+      - ./data/shared:/data/shared:ro
+      - ./config:/config:ro
+    networks:
+      court:
+        aliases:
+          - dept-xingbu
+      armory:
+        aliases:
+          - dept-xingbu
+    depends_on: *a1
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+  dept-gongbu:
+    image: court-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    hostname: dept-gongbu
+    environment:
+      ROLE: dept
+      DEPT: gongbu
+      PORT: "8080"
+      DATA_DIR: /data
+      CONFIG_DIR: /config
+      HUB_URL: http://hub:8000
+      GATEWAY_URL: http://gateway:8100
+      SANDBOX_URL: http://sandbox:8200
+    volumes:
+      - ./data/officials:/data/officials
+      - ./data/depts/gongbu:/data/depts/gongbu
+      - ./data/shared:/data/shared:ro
+      - ./config:/config:ro
+    networks:
+      court:
+        aliases:
+          - dept-gongbu
+      armory:
+        aliases:
+          - dept-gongbu
+    depends_on: *a1
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+  dept-yushitai:
+    image: court-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    hostname: dept-yushitai
+    environment:
+      ROLE: dept
+      DEPT: yushitai
+      PORT: "8080"
+      DATA_DIR: /data
+      CONFIG_DIR: /config
+      HUB_URL: http://hub:8000
+      GATEWAY_URL: http://gateway:8100
+    volumes:
+      - ./data/officials:/data/officials
+      - ./data/depts/yushitai:/data/depts/yushitai
+      - ./data/shared:/data/shared:ro
+      - ./config:/config:ro
+    networks:
+      court:
+        aliases:
+          - dept-yushitai
+    depends_on: *a1
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+volumes:
+  sandbox-workspaces: {}
+  hub-db: {}
+networks:
+  court:
+    name: court
+  armory:
+    name: armory

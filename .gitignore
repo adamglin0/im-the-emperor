@@ -1,0 +1,13 @@
+node_modules
+data/
+dist/
+.env
+*.log
+data-*/
+.env.providers
+.idea/
+*.iml
+.DS_Store
+coverage/
+*.tsbuildinfo
+.vite/
