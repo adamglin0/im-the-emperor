@@ -6,6 +6,7 @@ import {
   GatewayClient,
   HubClient,
   LIMITS,
+  McpClient,
   Outbox,
   SandboxClient,
   backoffMs,
@@ -33,6 +34,10 @@ export interface DeptRuntimeOptions {
   hubUrl: string;
   gatewayUrl: string;
   sandboxUrl?: string;
+  /** MCP 中转站地址；缺省 = 本部门官员不装 MCP 工具 */
+  mcpUrl?: string;
+  /** 轮次边界等 MCP 工具清单的上限（毫秒）；缺省 5 秒，测试可调小 */
+  mcpBoundaryWaitMs?: number;
   dataDir: string;
   tokens: DeptTokens;
   buildTools: ToolsFactory;
@@ -54,6 +59,7 @@ export class DeptRuntime {
   readonly hub: HubClient;
   readonly gateway: GatewayClient;
   readonly sandbox?: SandboxClient;
+  readonly mcp?: McpClient;
   readonly live = new LiveBus();
   readonly events: DeptEvents;
   readonly outbox: Outbox<EventIn>;
@@ -81,6 +87,10 @@ export class DeptRuntime {
     this.gateway = new GatewayClient({ baseUrl: opts.gatewayUrl, token: opts.tokens.dept, timeoutMs: 180_000, fetchImpl: opts.fetchImpl });
     if (opts.sandboxUrl && SANDBOX_DEPTS.has(opts.dept)) {
       this.sandbox = new SandboxClient({ baseUrl: opts.sandboxUrl, token: opts.tokens.sandbox, timeoutMs: 15 * 60_000, fetchImpl: opts.fetchImpl });
+    }
+    if (opts.mcpUrl) {
+      // 部门 token；官员各自 withPost。调用超时放宽到 15 分钟（单次调用上限由服务器配置 timeout_seconds 决定，≤600s）
+      this.mcp = new McpClient({ baseUrl: opts.mcpUrl, token: opts.tokens.dept, timeoutMs: 15 * 60_000, fetchImpl: opts.fetchImpl });
     }
     this.outbox = new Outbox<EventIn>(
       join(opts.dataDir, "depts", opts.dept, "outbox-events.jsonl"),
@@ -229,6 +239,8 @@ export class DeptRuntime {
         gatewayUrl: this.opts.gatewayUrl,
         deptToken: this.opts.tokens.dept,
         sandbox: this.sandbox,
+        mcp: this.mcp,
+        mcpBoundaryWaitMs: this.opts.mcpBoundaryWaitMs,
         streamFn: this.opts.streamFn,
         buildTools: this.opts.buildTools,
         events: this.events,
@@ -369,6 +381,11 @@ export class DeptRuntime {
 
   resume(posts?: string[]): void {
     for (const [p, o] of this.officials) if (!posts?.length || posts.includes(p)) o.resume();
+  }
+
+  /** MCP 配置/授权有变：各官员在下个轮次边界重新拉取 MCP 工具清单 */
+  markMcpDirty(): void {
+    for (const o of this.officials.values()) o.markMcpDirty();
   }
 
   /** 预算有变：停俸者立即复查 */

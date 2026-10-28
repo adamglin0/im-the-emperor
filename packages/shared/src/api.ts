@@ -51,6 +51,7 @@ import type {
   Transition,
   Visibility,
 } from "./types.ts";
+import type { McpAccess, McpInternalState, McpServerInput, McpServerStatus, McpServerView, McpTestRes, McpWriteMeta, McpWriteRes } from "./mcp.ts";
 
 export type ErrorCode =
   | "bad_request"
@@ -784,6 +785,22 @@ export class HubClient extends HttpClient {
   cancelProviderLogin = (sid: string) => this.req<ProviderLoginSession>("DELETE", `/api/provider-logins/${encodeURIComponent(sid)}`);
   testProvider = (id: string, model_id?: string) => this.req<ProviderTestRes>("POST", `/api/providers/${encodeURIComponent(id)}/test`, { model_id });
   checkModel = (provider: string, model_id: string) => this.req<ModelCheckRes>("GET", `/api/providers/${encodeURIComponent(provider)}/check${qs({ model_id })}`);
+  // MCP 工具（皇帝；或持 mcp_admin 工具组的官员，经 X-Acting-Post）
+  mcpServers = () => this.req<McpServerView[]>("GET", "/api/mcp/servers");
+  mcpServer = (id: string) => this.req<McpServerView>("GET", `/api/mcp/servers/${encodeURIComponent(id)}`);
+  createMcpServer = (r: McpServerInput & McpWriteMeta) => this.req<McpWriteRes>("POST", "/api/mcp/servers", r);
+  updateMcpServer = (id: string, r: McpServerInput & McpWriteMeta) => this.req<McpWriteRes>("PATCH", `/api/mcp/servers/${encodeURIComponent(id)}`, r);
+  deleteMcpServer = (id: string, r: McpWriteMeta = {}) => this.req<McpWriteRes>("DELETE", `/api/mcp/servers/${encodeURIComponent(id)}${qs(r)}`);
+  /** 测试已存配置（连上、列工具） */
+  testMcpServer = (id: string) => this.req<McpTestRes>("POST", `/api/mcp/servers/${encodeURIComponent(id)}/test`, {});
+  /** 测试草稿（仅皇帝）；base_id 给出时，null 值的密钥沿用该服务器已存值 */
+  testMcpDraft = (r: { base_id?: string; server: McpServerInput }) => this.req<McpTestRes>("POST", "/api/mcp/test", r);
+  restartMcpServer = (id: string) => this.req<McpServerStatus>("POST", `/api/mcp/servers/${encodeURIComponent(id)}/restart`, {});
+  mcpStatus = () => this.req<McpServerStatus[]>("GET", "/api/mcp/status");
+  /** 某职位（现任官员）可用的 MCP 服务器 */
+  mcpAccess = (post: string) => this.req<McpAccess>("GET", `/api/mcp/access${qs({ post })}`);
+  /** broker 拉全量配置（含密钥；仅 broker token） */
+  mcpInternalState = () => this.req<McpInternalState>("GET", "/api/internal/mcp/state");
   examQuestions = (q?: { dimension?: string; viewer?: Address }) => this.req<ExamQuestion[]>("GET", `/api/exams/questions${qs(q)}`);
   addExamQuestion = (r: WriteMeta & Omit<ExamQuestion, "id" | "created_at" | "status"> & { status?: ExamQuestion["status"] }) =>
     this.req<ExamQuestion>("POST", "/api/exams/questions", r);

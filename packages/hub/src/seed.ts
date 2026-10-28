@@ -10,6 +10,8 @@ export interface HubTokens {
   gateway: string;
   control: string;
   sandbox: string;
+  /** MCP 中转站（broker）令牌：只写 hub/tokens.json，部门不可见 */
+  mcp: string;
 }
 
 const genToken = (prefix: string) => `${prefix}_${randomBytes(24).toString("hex")}`;
@@ -23,7 +25,7 @@ function setMeta(db: Db, k: string, v: string): void {
 
 /** 网关/控制面/沙箱令牌：环境变量优先，否则首次生成并存 meta */
 export function ensureTokens(db: Db, env: Record<string, string | undefined> = process.env): HubTokens {
-  const pick = (name: "gateway" | "control" | "sandbox", envName: string, prefix: string): string => {
+  const pick = (name: "gateway" | "control" | "sandbox" | "mcp", envName: string, prefix: string): string => {
     const fromEnv = env[envName]?.trim();
     const key = `token_${name}`;
     if (fromEnv) {
@@ -41,6 +43,7 @@ export function ensureTokens(db: Db, env: Record<string, string | undefined> = p
     gateway: pick("gateway", "GATEWAY_TOKEN", "gw"),
     control: pick("control", "CONTROL_TOKEN", "ct"),
     sandbox: pick("sandbox", "SANDBOX_TOKEN", "sb"),
+    mcp: pick("mcp", "MCP_TOKEN", "mc"),
   }));
 }
 
@@ -176,15 +179,22 @@ export function seed(ctx: HubCtx, tokens: HubTokens): void {
   writeTokenFiles(ctx, tokens);
 }
 
-/** 令牌文件：DATA_DIR/shared/tokens.json（部门/网关/沙箱容器读取）与 DATA_DIR/hub/tokens.json */
+/**
+ * 令牌文件：DATA_DIR/shared/tokens.json（部门/网关/沙箱容器读取）与 DATA_DIR/hub/tokens.json。
+ * MCP broker 令牌只写 hub 份（部门可读 shared，拿到它就能取全部 MCP 密钥）。
+ */
 export function writeTokenFiles(ctx: HubCtx, tokens: HubTokens): void {
   const depts: Record<string, string> = {};
   for (const r of ctx.db.all<{ id: string; token: string }>("SELECT id, token FROM depts ORDER BY rowid LIMIT 100")) depts[r.id] = r.token;
-  const content = JSON.stringify({ depts, gateway: tokens.gateway, control: tokens.control, sandbox: tokens.sandbox }, null, 2) + "\n";
-  for (const dir of [join(ctx.dataDir, "shared"), join(ctx.dataDir, "hub")]) {
+  const shared = { depts, gateway: tokens.gateway, control: tokens.control, sandbox: tokens.sandbox };
+  const files: [string, object][] = [
+    [join(ctx.dataDir, "shared"), shared],
+    [join(ctx.dataDir, "hub"), { ...shared, mcp: tokens.mcp }],
+  ];
+  for (const [dir, obj] of files) {
     mkdirSync(dir, { recursive: true });
     const f = join(dir, "tokens.json");
-    writeFileSync(f, content, { mode: 0o600 });
+    writeFileSync(f, JSON.stringify(obj, null, 2) + "\n", { mode: 0o600 });
     try {
       chmodSync(f, 0o600);
     } catch {

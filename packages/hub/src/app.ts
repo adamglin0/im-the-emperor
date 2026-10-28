@@ -28,6 +28,7 @@ import * as auditRoutes from "./routes/audit.ts";
 import * as tracesRoutes from "./routes/traces.ts";
 import * as emperorFlowRoutes from "./routes/emperor_flow.ts";
 import * as providersRoutes from "./routes/providers.ts";
+import * as mcpRoutes from "./routes/mcp.ts";
 
 type RouteModule = { register: (app: Hono, ctx: HubCtx) => void };
 
@@ -53,6 +54,7 @@ const ROUTES: RouteModule[] = [
   tracesRoutes,
   emperorFlowRoutes,
   providersRoutes,
+  mcpRoutes,
 ];
 
 export interface AppOptions {

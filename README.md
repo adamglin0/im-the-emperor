@@ -49,6 +49,7 @@ npx tsx scripts/smoke-real.ts         # 真实模型冒烟：一道小圣旨走�
 | `hub`（皇城） | 唯一真相源（SQLite WAL）：名册、消息、诏令/任务状态机、待办、定时任务、资产、账本、科举、稽查、追踪；SSE；看门狗。内部端口 8000（必须带 token），皇帝/Web 端口 8001（只发布到本机） |
 | `gateway`（LLM 网关） | 唯一的 LLM 出口：注册 pi 全部内置提供商与自定义提供商，持有凭据（设置页配置），负责限流、熔断、预算检查和记账；兼容 pi-agent-core 的 `streamProxy`；`LLM_MODE=mock` 时启用确定性 mock 大脑 |
 | `sandbox`（将作监） | 兵/工/刑部的命令执行与网页抓取：不持有密钥，不接入朝廷网络，各工作区按 uid 隔离 |
+| `mcp`（MCP 中转站） | 官员使用 MCP 工具的唯一出口：从 hub 拉取配置（含密钥），按授权范围（所有人/部门/个人）放行；streamable HTTP 直连，stdio 服务器每个起一个独立 docker 容器（挂宿主 docker.sock；容器不入朝廷网络、只读根、无能力、限内存/CPU）|
 | `dept-*` ×11 | 部门 runtime：运行本部门的全部官员 Agent，对外提供部门 API 和每位官员的 API |
 
 要点（详见 `docs/design.md`）：
@@ -69,6 +70,7 @@ packages/hub          皇城
 packages/gateway      LLM 网关 + mock 大脑
 packages/dept         部门 runtime + 官员工具（tools/）
 packages/sandbox      将作监沙箱
+packages/mcp          MCP 中转站
 packages/web          皇帝视角 Web（React）
 tests/                进程内端到端测试（整座朝廷）
 scripts/              构建、compose 生成、部署助手、冒烟与 Docker 端到端
@@ -92,6 +94,7 @@ npx tsx scripts/smoke-real.ts          # 真实模型
 - **待办**：「御书房」集中显示议事结论、谏诤、封驳升级、复奏、审批、弹劾、预算熔断等。
 - **罢朝**：「御书房」右上角的急停开关，暂停全体官员和网关。
 - **模型提供商**：在「设置」页配置 pi 支持的任一提供商（Anthropic、OpenAI、Google、DeepSeek、OpenRouter、Groq、xAI、Mistral、Moonshot、智谱、通义、opencode 等约 41 家）：填 API 密钥，或走订阅登录（OAuth：打开授权链接，把回调网址/授权码粘回即可）；也可新增自定义的 OpenAI / Anthropic / Google 兼容服务（含本地 Ollama、vLLM）。密钥只存网关的 `data/gateway/credentials.json`（0600），不会回传浏览器；也可把 `ANTHROPIC_API_KEY=…` 之类写进 `.env.providers`（网关容器自动读取，设置页所存优先）。需要代理时在 `.env.providers` 里设 `HTTPS_PROXY`。（`OPENCODE_API_KEY` 例外：它由 `.env` 注入，写在 `.env.providers` 里会被覆盖。）
+- **MCP 工具**：「设置 → MCP 工具」接入 MCP 服务器（streamable HTTP 或 stdio），授权给所有人、某些部门或某些官员（可多选，授权跟人走），可限定工具白名单、测试连接、查看连接状态。官员会自动获得名为 `mcp__<服务器>__<工具>` 的工具。请求头/环境变量等密钥只写不读。吏部尚书/侍郎、兵部尚书、库部郎中持 `mcp_admin` 工具组，可经 API 列出、新增、调整、删除、测试服务器：放大权限（新建、启用、新增授权、改连接）须皇帝批准，收缩（停用、撤授权、删除）直接生效。设计见 `docs/mcp.md`。
 - **科举**：在「科举」页从已配置的提供商中选模型入池，系统自动排考；金榜会给出各部门的适配度，户部据此任命（「吏部」页「换模型」）。
 - **定时任务**：在「定时任务」页为任何官员或部门建 cron / 间隔 / 一次性任务。
 

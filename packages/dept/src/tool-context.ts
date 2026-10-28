@@ -4,6 +4,7 @@ import type {
   DeptClient,
   DeptDef,
   HubClient,
+  McpClient,
   Official,
   OfficialStatus,
   PostDef,
@@ -32,6 +33,8 @@ export interface ToolContext {
   readonly hub: HubClient;
   /** 兵/工/刑部才有 */
   readonly sandbox?: SandboxClient;
+  /** MCP 中转站客户端（已带 acting post）；部门未配置 MCP_URL 时没有 */
+  readonly mcp?: McpClient;
   /** 本部门工作区名（沙箱内） */
   readonly workspace: string;
   registry(): Registry;

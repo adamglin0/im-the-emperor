@@ -25,6 +25,7 @@ const defaults = [
   ["CONTROL_TOKEN", () => token("ctl"), "hub → 部门控制面 token"],
   ["GATEWAY_ADMIN_TOKEN", () => token("gwa"), "hub → 网关管理接口（模型提供商与凭据）token；只给 hub 与网关，不下发部门"],
   ["SANDBOX_TOKEN", () => token("sb"), "部门 → 沙箱 token"],
+  ["MCP_TOKEN", () => token("mc"), "hub ↔ MCP 中转站 token；只给 hub 与 mcp，不下发部门"],
   ["LLM_MODE", () => "real", "real | mock（mock = 零成本脚本化假模型）"],
   ["PI_AUTH_FILE", () => (existsSync(piAuth) ? piAuth : "/dev/null"), "pi 的 auth.json（含 opencode-go 密钥）；没有就用 /dev/null 并设置 OPENCODE_API_KEY"],
   ["OPENCODE_API_KEY", () => "", "可选：直接给 opencode-go 密钥（优先于 auth.json）"],

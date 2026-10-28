@@ -3,6 +3,8 @@
 import { ApiError, HubClient } from "@court/shared/api";
 
 export const hub = new HubClient({ baseUrl: "", timeoutMs: 20_000 });
+/** 长耗时接口专用（MCP 测试/重启：stdio 首次启动要拉镜像、下载包，可达数分钟；hub 侧上限 330 秒） */
+export const slowHub = new HubClient({ baseUrl: "", timeoutMs: 340_000 });
 
 export { ApiError };
 

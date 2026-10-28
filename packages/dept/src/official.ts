@@ -18,6 +18,8 @@ import {
   DeptClient,
   JsonlLog,
   LIMITS,
+  MCP_TOOL_PREFIX,
+  McpClient,
   dayStart,
   newId,
   objectSpanId,
@@ -29,6 +31,7 @@ import {
   type GatewayClient,
   type HubClient,
   type InboxItem,
+  type McpCatalog,
   type Message,
   type Official,
   type OfficialState,
@@ -51,6 +54,8 @@ import {
   splitForCompaction,
 } from "./compaction.ts";
 import type { DeptEvents, LiveBus } from "./events.ts";
+import { buildMcpTools, keepToolsOfFailingServers } from "./mcp-tools.ts";
+import { redactMcpSecretsInArgs } from "./tools/mcp.ts";
 import { resolveModel } from "./model.ts";
 import type { Semaphore } from "./semaphore.ts";
 import { SUMMARY_PREFIX, SessionStore } from "./session.ts";
@@ -68,6 +73,10 @@ export interface OfficialDeps {
   gatewayUrl: string;
   deptToken: string;
   sandbox?: SandboxClient;
+  /** MCP 中转站客户端（部门 token；官员内部再 withPost）。缺省 = 不装 MCP 工具 */
+  mcp?: McpClient;
+  /** 轮次边界（含启动）等 MCP 工具清单的上限，缺省 MCP_BOUNDARY_WAIT_MS；测试可调小 */
+  mcpBoundaryWaitMs?: number;
   /** 测试用：替代 streamProxy 的 StreamFn（仍会收到 metadata） */
   streamFn?: StreamFn;
   buildTools: ToolsFactory;
@@ -187,6 +196,11 @@ const SICK_MAX_MS = 30 * 60_000;
 const HALT_RECHECK_MS = 30_000;
 const LOG_TRUNCATE = 2000;
 const STALL_GRACE_MS = 60_000;
+/** MCP 工具清单：按时刷新间隔 / 失败（或有服务器出错）后重试间隔 / 拉清单超时 / 轮次边界至多等多久 */
+const MCP_REFRESH_MS = 5 * 60_000;
+const MCP_RETRY_MS = 60_000;
+const MCP_CATALOG_TIMEOUT_MS = 30_000;
+const MCP_BOUNDARY_WAIT_MS = 5_000;
 /** 官员目录锁：同一官员同时只能由一个部门运行（跨部门调岗时旧部门收尾期间新部门不得接手） */
 const LOCK_REFRESH_MS = 10_000;
 const LOCK_STALE_MS = 45_000;
@@ -223,10 +237,22 @@ export class OfficialRuntime implements ToolContext {
   readonly workspace: string;
   readonly hub: HubClient;
   readonly sandbox?: SandboxClient;
+  readonly mcp?: McpClient;
 
   private cfgSystemPrompt = "";
   private configVersion = -1;
   private configDirty = true;
+  // MCP 动态工具（docs/mcp.md §4）：轮次边界（含启动）按需拉清单，清单版本变化才重建；只在边界改动 agent 的工具
+  private mcpCatalogClient?: McpClient;
+  private mcpTools: AgentTool<any>[] = [];
+  /** 已装上的清单（出错服务器已并入其旧工具）；version 用来判断是否需要重建 */
+  private mcpAppliedCatalog?: McpCatalog;
+  private mcpDirty = true;
+  /** 下次按时刷新的时刻（成功后 +5 分钟；失败或有服务器出错 +1 分钟） */
+  private mcpNextRefreshAt = 0;
+  /** 进行中的拉取：边界上等不完就留在后台，拉到的清单待下个边界装上 */
+  private mcpCatalogFetch?: Promise<void>;
+  private mcpFetchedCatalog?: McpCatalog;
   private agent?: Agent;
   private readonly L: Limits;
   private readonly dir: string;
@@ -297,6 +323,11 @@ export class OfficialRuntime implements ToolContext {
     this.workspace = deps.dept;
     this.hub = deps.hub.withPost(post.post_id);
     this.sandbox = deps.sandbox;
+    if (deps.mcp) {
+      this.mcp = deps.mcp.withPost(post.post_id);
+      // 列清单另用短超时：broker 单服务器列工具 20s 封顶，不能让它拖住轮次边界
+      this.mcpCatalogClient = new McpClient({ ...this.mcp.opts, timeoutMs: MCP_CATALOG_TIMEOUT_MS });
+    }
     this.dir = join(deps.dataDir, "officials", official.official_id);
     mkdirSync(this.dir, { recursive: true });
     this.session = new SessionStore(join(this.dir, "session.jsonl"));
@@ -332,6 +363,8 @@ export class OfficialRuntime implements ToolContext {
 
   private async startInner(): Promise<void> {
     await this.refreshConfig();
+    // 先试拉 MCP 清单（限时、失败不碍事）：重建的 agent 一开始就带着已有的 MCP 工具，免得首轮才宣告「新增」
+    await this.refreshMcp();
     const local = this.stateStore.load();
     let hubAcked = 0;
     try {
@@ -469,6 +502,16 @@ export class OfficialRuntime implements ToolContext {
     this.configDirty = true;
   }
 
+  /** 控制面 /control/mcp：MCP 配置/授权有变，下个轮次边界重新拉取工具清单 */
+  markMcpDirty(): void {
+    this.mcpDirty = true;
+  }
+
+  /** 当前装上的 MCP 工具名（调试/测试用） */
+  mcpToolNames(): string[] {
+    return this.mcpTools.map((t) => t.name);
+  }
+
   /** 控制面/工具：请求压缩（轮间执行） */
   requestCompaction(summary?: string): void {
     this.compactionRequest = { summary, reason: summary ? "self" : "requested" };
@@ -505,6 +548,61 @@ export class OfficialRuntime implements ToolContext {
     }
   }
 
+  /**
+   * 轮次边界（含启动）：mcpDirty 或到点 → 拉清单，至多等 mcpBoundaryWaitMs；等不完的拉取留在后台，下个边界再装。
+   * 失败保持现有 MCP 工具、稍后再试；任何情况都不抛出、不拖住本轮太久。
+   */
+  private async refreshMcp(): Promise<void> {
+    if (!this.mcpCatalogClient) return;
+    if (!this.mcpCatalogFetch && (this.mcpDirty || Date.now() >= this.mcpNextRefreshAt)) this.mcpCatalogFetch = this.fetchMcpCatalog();
+    if (this.mcpCatalogFetch) await settleWithin(this.mcpCatalogFetch, this.deps.mcpBoundaryWaitMs ?? MCP_BOUNDARY_WAIT_MS);
+    const fetched = this.mcpFetchedCatalog;
+    if (!fetched) return;
+    this.mcpFetchedCatalog = undefined;
+    this.applyMcpCatalog(fetched);
+  }
+
+  /** 拉一次清单，结果暂存（不碰 agent）。拉取期间再来的 markMcpDirty 会让下个边界重拉 */
+  private async fetchMcpCatalog(): Promise<void> {
+    this.mcpDirty = false;
+    try {
+      const catalog = await this.mcpCatalogClient!.catalog();
+      const anyServerFailing = (catalog.servers ?? []).some((s) => s.error);
+      this.mcpFetchedCatalog = catalog;
+      this.mcpNextRefreshAt = Date.now() + (anyServerFailing ? MCP_RETRY_MS : MCP_REFRESH_MS);
+    } catch (e) {
+      this.mcpNextRefreshAt = Date.now() + MCP_RETRY_MS;
+      this.log("mcp_refresh_failed", { error: short((e as Error)?.message ?? String(e), 500), kept: this.mcpTools.length });
+    } finally {
+      this.mcpCatalogFetch = undefined;
+    }
+  }
+
+  /** 版本变化才重建 MCP 工具；出错的服务器沿用其旧工具（与 broker 不可达时一致，免得工具忽增忽减） */
+  private applyMcpCatalog(fetched: McpCatalog): void {
+    if (fetched.version === this.mcpAppliedCatalog?.version) return;
+    const catalog = keepToolsOfFailingServers(fetched, this.mcpAppliedCatalog);
+    try {
+      this.mcpTools = buildMcpTools(catalog, this.mcp!, this);
+    } catch (e) {
+      this.log("mcp_refresh_failed", { error: short((e as Error)?.message ?? String(e), 500), kept: this.mcpTools.length });
+      return;
+    }
+    this.mcpAppliedCatalog = catalog;
+    const errors = (catalog.servers ?? []).filter((s) => s.error).map((s) => ({ server: s.id, error: short(s.error, 300) }));
+    this.log("mcp_tools", { version: catalog.version, count: this.mcpTools.length, servers: (catalog.servers ?? []).map((s) => s.id), errors: errors.length ? errors : undefined });
+    // pi 在下一次请求前自动以 system 消息宣告工具增删
+    if (this.agent) this.agent.state.tools = this.allTools();
+  }
+
+  /** 基础工具（按工具组）+ 当前 MCP 工具（同名以基础工具为准） */
+  private allTools(): AgentTool<any>[] {
+    const base = this.deps.buildTools(this);
+    if (!this.mcpTools.length) return base;
+    const names = new Set(base.map((t) => t.name));
+    return [...base, ...this.mcpTools.filter((t) => !names.has(t.name))];
+  }
+
   private currentModel(): Model<Api> {
     const entry = this.deps.registry().models.find((m) => m.key === this.official.model);
     return resolveModel(this.official.model, entry);
@@ -515,7 +613,7 @@ export class OfficialRuntime implements ToolContext {
   }
 
   private buildAgent(history: AgentMessage[]): void {
-    const tools = this.deps.buildTools(this);
+    const tools = this.allTools();
     const sys = this.systemMessage(tools);
     const messages = [...(sys ? [sys] : []), ...history.filter((m) => m.role !== "system")];
     this.agent = new Agent({
@@ -537,7 +635,7 @@ export class OfficialRuntime implements ToolContext {
   /** 配置变更：换模型/思考强度/工具，重建开头的系统消息（系统提示只读，由会话中的系统消息重放） */
   private applyConfigToAgent(): void {
     const agent = this.agent!;
-    const tools = this.deps.buildTools(this);
+    const tools = this.allTools();
     agent.state.model = this.currentModel();
     agent.state.thinkingLevel = this.official.thinking;
     agent.state.tools = tools;
@@ -629,6 +727,7 @@ export class OfficialRuntime implements ToolContext {
     }
     if (this.pendingHubAck !== undefined) await this.flushHubAck();
     if (this.configDirty) await this.refreshConfig();
+    await this.refreshMcp();
     if (this.compactionRequest) {
       await this.runCompaction({ summary: this.compactionRequest.summary, reason: this.compactionRequest.reason });
       this.compactionRequest = undefined;
@@ -776,6 +875,7 @@ export class OfficialRuntime implements ToolContext {
   private async runTurn(wakeReason: string, prefetched?: Briefing): Promise<void> {
     // 配置变更在轮边界生效
     if (this.configDirty) await this.refreshConfig();
+    await this.refreshMcp();
     const acked = this.wait.acked_seq;
     for (const [id, seq] of this.carriedSteers) if (seq <= acked) this.carriedSteers.delete(id);
     const carried = this.carriedSteers;
@@ -1162,8 +1262,9 @@ export class OfficialRuntime implements ToolContext {
         this.setState("tool", e.toolName);
         this.toolNames.push(e.toolName);
         this.toolSpanStarts.set(e.toolCallId, { span_id: newId("sp"), at: Date.now() });
-        this.log("tool_call", { tool: e.toolName, tool_call_id: e.toolCallId, args: short(e.args) });
-        this.deps.live.publish(this.postId, "tool_start", { tool: e.toolName, tool_call_id: e.toolCallId, args: short(e.args, 1000) });
+        const loggedArgs = redactMcpSecretsInArgs(e.toolName, e.args);
+        this.log("tool_call", { tool: e.toolName, tool_call_id: e.toolCallId, args: short(loggedArgs) });
+        this.deps.live.publish(this.postId, "tool_start", { tool: e.toolName, tool_call_id: e.toolCallId, args: short(loggedArgs, 1000) });
         break;
       }
       case "tool_execution_end": {
@@ -1477,11 +1578,14 @@ export class OfficialRuntime implements ToolContext {
   }
 }
 
-/** 无实效工具：只读查询与结束/自理类。一轮只调用了这些即视为「空转」 */
-const IDLE_TOOL_RE = /^(end_turn|sleep|wait_for|whats_happening|my_status|read_inbox|ack_message|memory_note|set_status|search_messages|trace_timeline|council_get|tool_inventory|style_guide_get|glossary_get|post_vacancies|budget_get)$|^(get_|list_)|_(get|list|search|read|status|diff|history|findings|logs|ledger|trace|report_get)$/;
+/**
+ * 无实效工具：只读查询与结束/自理类。一轮只调用了这些即视为「空转」。
+ * MCP 动态工具（mcp__*）一律算有实效：无法从外部工具名可靠判断其是否只读。
+ */
+const IDLE_TOOL_RE = /^(end_turn|sleep|wait_for|whats_happening|my_status|read_inbox|ack_message|memory_note|set_status|search_messages|trace_timeline|council_get|tool_inventory|style_guide_get|glossary_get|post_vacancies|budget_get|mcp_list_servers|mcp_get_server|mcp_get_access)$|^(get_|list_)|_(get|list|search|read|status|diff|history|findings|logs|ledger|trace|report_get)$/;
 
 export function isProductiveTurn(tools: string[]): boolean {
-  return tools.some((t) => !IDLE_TOOL_RE.test(t));
+  return tools.some((t) => t.startsWith(MCP_TOOL_PREFIX) || !IDLE_TOOL_RE.test(t));
 }
 
 /** 对方官署不可达/故障 → 回退经 hub 直投 */

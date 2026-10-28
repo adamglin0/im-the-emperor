@@ -14,5 +14,5 @@
     "types": ["node"],
     "lib": ["ES2023", "DOM"]
   },
-  "include": ["packages/shared/src", "packages/hub/src", "packages/gateway/src", "packages/dept/src", "packages/sandbox/src", "tests"]
+  "include": ["packages/shared/src", "packages/hub/src", "packages/gateway/src", "packages/dept/src", "packages/sandbox/src", "packages/mcp/src", "tests"]
 }

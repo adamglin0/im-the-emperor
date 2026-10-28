@@ -1,4 +1,4 @@
-// 部门容器入口。环境变量：DEPT（必填）、HUB_URL、GATEWAY_URL、SANDBOX_URL、DATA_DIR、PORT、
+// 部门容器入口。环境变量：DEPT（必填）、HUB_URL、GATEWAY_URL、SANDBOX_URL、MCP_URL、DATA_DIR、PORT、
 // DEPT_TOKEN / CONTROL_TOKEN / SANDBOX_TOKEN（缺省读 DATA_DIR/shared/tokens.json，未就绪则重试）、DEPT_URL_OVERRIDES（JSON）。
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -17,6 +17,8 @@ export interface StartDeptOptions {
   hubUrl: string;
   gatewayUrl: string;
   sandboxUrl?: string;
+  /** MCP 中转站地址（runDeptFromEnv 缺省取 env MCP_URL 或 http://mcp:8300）；不填 = 不装 MCP 工具 */
+  mcpUrl?: string;
   dataDir: string;
   port?: number;
   hostname?: string;
@@ -81,6 +83,7 @@ export async function startDept(opts: StartDeptOptions): Promise<DeptHandle> {
     hubUrl: opts.hubUrl,
     gatewayUrl: opts.gatewayUrl,
     sandboxUrl: opts.sandboxUrl,
+    mcpUrl: opts.mcpUrl,
     dataDir: opts.dataDir,
     tokens,
     buildTools: opts.buildTools ?? buildTools,
@@ -123,6 +126,7 @@ export async function runDeptFromEnv(env: NodeJS.ProcessEnv = process.env): Prom
     hubUrl: env.HUB_URL ?? "http://hub:8000",
     gatewayUrl: env.GATEWAY_URL ?? "http://gateway:8100",
     sandboxUrl: env.SANDBOX_URL ?? "http://sandbox:8200",
+    mcpUrl: env.MCP_URL ?? "http://mcp:8300",
     dataDir: env.DATA_DIR ?? "./data",
     port: env.PORT ? Number(env.PORT) : DEPT_PORT,
     deptUrlOverrides: parseDeptUrlOverrides(env.DEPT_URL_OVERRIDES),

@@ -272,6 +272,7 @@ export const TOOL_GROUP_LABEL: Record<string, string> = {
   justice: "刑名",
   rites: "礼文",
   censor: "监察",
+  mcp_admin: "MCP 配置",
 };
 export const ALL_TOOL_GROUPS = Object.keys(TOOL_GROUP_LABEL);
 

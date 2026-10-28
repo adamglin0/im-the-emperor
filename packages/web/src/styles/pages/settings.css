@@ -305,3 +305,254 @@
     width: 100% !important;
   }
 }
+
+/* ───────── MCP 工具 ───────── */
+.prov-tile.err {
+  border-left-color: var(--bad);
+}
+.prov-tile.off {
+  border-left-color: var(--rule);
+}
+.prov-tile.off .prov-name,
+.prov-tile.off .prov-kv {
+  opacity: 0.7;
+}
+.mcp-desc {
+  color: var(--ink-2);
+  word-break: break-word;
+}
+.mcp-err {
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 6.5em;
+  overflow: auto;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--vermilion-soft) 45%, transparent);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+.mcp-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.mcp-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 1px 8px 1px 2px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 12px;
+  background: var(--panel);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink);
+  word-break: break-word;
+}
+.mcp-target.tool {
+  padding-left: 8px;
+}
+.mcp-target.tool code {
+  font-size: 11.5px;
+}
+.mcp-target-kind {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  font-family: var(--font-serif);
+  font-size: 10.5px;
+  color: var(--panel);
+  background: var(--ink-3);
+}
+.mcp-target.all {
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  background: var(--gold-soft);
+}
+.mcp-target.all .mcp-target-kind {
+  background: var(--gold);
+}
+.mcp-target.dept .mcp-target-kind {
+  background: var(--azure);
+}
+.mcp-target.official .mcp-target-kind {
+  background: var(--plum);
+}
+.mcp-target.missing {
+  border-style: dashed;
+  color: var(--ink-3);
+  text-decoration: line-through;
+}
+.mcp-target-sub {
+  color: var(--ink-3);
+  font-size: 11px;
+}
+.mcp-target-x {
+  flex: none;
+  margin-right: -4px;
+  padding: 0 3px;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+.mcp-target-x:hover {
+  color: var(--bad);
+}
+
+/* 开关 */
+.mcp-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+.mcp-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+.mcp-switch-track {
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--rule-strong);
+  transition: background 0.15s;
+}
+.mcp-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fbf7ee;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s;
+}
+.mcp-switch input:checked + .mcp-switch-track {
+  background: var(--jade);
+}
+.mcp-switch input:checked + .mcp-switch-track::after {
+  transform: translateX(14px);
+}
+.mcp-switch input:focus-visible + .mcp-switch-track {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold-bright) 35%, transparent);
+}
+.mcp-switch input:disabled + .mcp-switch-track {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 工具清单 */
+.mcp-tools {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 360px;
+  overflow: auto;
+  border-top: 1px dashed var(--rule);
+}
+.mcp-tool {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--rule);
+}
+.mcp-tool-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  word-break: break-all;
+}
+.mcp-tool-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+/* 编辑抽屉 */
+.mcp-image {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.mcp-image select {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 50%;
+}
+.mcp-image input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.mcp-check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr));
+  gap: 6px;
+}
+.mcp-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--panel);
+  font-size: 13px;
+}
+.mcp-check input {
+  flex: none;
+}
+.mcp-check.on {
+  border-color: var(--gold-bright);
+  background: color-mix(in srgb, var(--gold-soft) 55%, var(--panel));
+}
+.mcp-discovered {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+}
+.mcp-foot {
+  position: sticky;
+  /* drawer-body 底部留白 40px：负偏移使其贴住可视区底边 */
+  bottom: -40px;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 10px 0 12px;
+  background: var(--paper);
+  border-top: 1px solid var(--rule);
+}
+
+@media (max-width: 720px) {
+  .mcp-image {
+    flex-wrap: wrap;
+  }
+  .mcp-image select {
+    max-width: 100%;
+    flex: 1 1 100%;
+  }
+  .mcp-foot .grow {
+    flex-basis: 100%;
+  }
+}

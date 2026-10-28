@@ -204,9 +204,9 @@ posts:
       default_schedules: [{ title: 督办超期, spec: { cron: "0 */2 * * *" }, payload: 检查超期未结的任务（task_list state=open），提醒承办人或报告左右丞。 }] }
 
   # ── 吏部 ──
-  - { post_id: libu.shangshu, dept: libu, title: 吏部尚书, rank: 正三品, roles: [head, config], tool_groups: [common, ministry_head, config], name: 高季辅,
+  - { post_id: libu.shangshu, dept: libu, title: 吏部尚书, rank: 正三品, roles: [head, config], tool_groups: [common, ministry_head, config, mcp_admin], name: 高季辅,
       duties: 主持吏部；审定 Agent 配置的调整（提示词/思考强度/工具），每一项都要写明理由。 }
-  - { post_id: libu.shilang, dept: libu, title: 吏部侍郎, rank: 正四品上, roles: [deputy, config], tool_groups: [common, ministry_head, config], name: 唐临川,
+  - { post_id: libu.shilang, dept: libu, title: 吏部侍郎, rank: 正四品上, roles: [deputy, config], tool_groups: [common, ministry_head, config, mcp_admin], name: 唐临川,
       duties: 协理吏部；起草并执行配置调整；根据御史台的弹劾和考课结果，提出改进建议。 }
   - { post_id: libu.kaogong_langzhong, dept: libu, title: 考功郎中, rank: 从五品上, roles: [grader, kaoke], tool_groups: [common, exam], name: 马周臣,
       duties: 科举阅卷（主观题），评分要公允并写明理由；负责在任官员的考课评等。 }
@@ -236,13 +236,13 @@ posts:
       duties: 主客司负责翻译（中外互译），要求信、达、雅。 }
 
   # ── 兵部 ──
-  - { post_id: bingbu.shangshu, dept: bingbu, title: 兵部尚书, rank: 正三品, roles: [head], tool_groups: [common, ministry_head, workshop], name: 李靖安,
+  - { post_id: bingbu.shangshu, dept: bingbu, title: 兵部尚书, rank: 正三品, roles: [head], tool_groups: [common, ministry_head, workshop, mcp_admin], name: 李靖安,
       duties: 主持兵部；分派执行类任务，把控风险。 }
   - { post_id: bingbu.shilang, dept: bingbu, title: 兵部侍郎, rank: 正四品下, roles: [deputy, executor], tool_groups: [common, ministry_head, workshop], name: 侯君弼,
       duties: 协理兵部；执行复杂的工具任务。 }
   - { post_id: bingbu.zhifang_langzhong, dept: bingbu, title: 职方郎中, rank: 从五品上, roles: [executor], tool_groups: [common, workshop], name: 张公谨行,
       duties: 在沙箱里执行命令、脚本和网页抓取，如实回报结果。 }
-  - { post_id: bingbu.kubu_langzhong, dept: bingbu, title: 库部郎中, rank: 从五品上, roles: [armory], tool_groups: [common, workshop], activity: on_demand, name: 程知节远,
+  - { post_id: bingbu.kubu_langzhong, dept: bingbu, title: 库部郎中, rank: 从五品上, roles: [armory], tool_groups: [common, workshop, mcp_admin], activity: on_demand, name: 程知节远,
       duties: 掌管军械：维护工具清单（tool_inventory），把常用脚本整理成部门资产。 }
   - { post_id: bingbu.jiabu_langzhong, dept: bingbu, title: 驾部郎中, rank: 从五品上, roles: [courier], tool_groups: [common], activity: on_demand, name: 段志玄德,
       duties: 掌管驿传：关注消息投递是否健康、有没有死信，发现问题就报告。 }

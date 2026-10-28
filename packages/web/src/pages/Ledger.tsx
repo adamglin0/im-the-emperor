@@ -42,6 +42,7 @@ const APPROVAL_TYPE: Record<Approval["type"], string> = {
   asset_access: "阅私产",
   budget: "预算",
   new_official: "增员",
+  mcp_config: "MCP 配置",
 };
 const APPROVAL_STATUS: Record<Approval["status"], { label: string; tone: Tone }> = {
   pending: { label: "待批", tone: "gold" },
@@ -560,6 +561,12 @@ function ApprovalSummary({ a }: { a: Approval }) {
       case "asset_access":
         text = <>阅 {String(p.asset_id ?? p.path ?? "私产")}</>;
         break;
+      case "mcp_config": {
+        const s = (p.server ?? p.config ?? {}) as Record<string, unknown>;
+        const sid = String(s.id ?? p.id ?? p.server_id ?? "");
+        text = <>MCP 服务器 <b>{String(s.name ?? sid)}</b>{sid ? <span className="mono small"> {sid}</span> : null}{p.op || p.action ? `：${String(p.op ?? p.action)}` : ""}</>;
+        break;
+      }
     }
   } catch {
     text = null;
@@ -578,7 +585,7 @@ function ApprovalSummary({ a }: { a: Approval }) {
 
 function ApprovalsCard() {
   const [status, setStatus] = useState<"pending" | "all">("pending");
-  const q = useQuery(() => hub.approvals(status === "all" ? undefined : status), [status], { watch: ["approval.", "notification.", "config.", "personnel.", "budget.", "schedule."] });
+  const q = useQuery(() => hub.approvals(status === "all" ? undefined : status), [status], { watch: ["approval.", "notification.", "config.", "personnel.", "budget.", "schedule.", "mcp."] });
   const { run, pending } = useAction();
   const confirm = useConfirm();
   const decide = async (a: Approval, option: "approve" | "reject") => {

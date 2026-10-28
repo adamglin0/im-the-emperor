@@ -227,6 +227,11 @@ export function createDeptApp(rt: DeptRuntime, opts: DeptAppOptions): Hono {
     return c.json({ ok: true });
   });
 
+  app.post("/control/mcp", (c) => {
+    rt.markMcpDirty();
+    return c.json({ ok: true });
+  });
+
   app.post("/control/budget", (c) => {
     rt.recheckBudget();
     return c.json({ ok: true });

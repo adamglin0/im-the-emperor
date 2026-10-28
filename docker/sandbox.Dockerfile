@@ -8,6 +8,7 @@ COPY packages/hub/package.json packages/hub/
 COPY packages/gateway/package.json packages/gateway/
 COPY packages/dept/package.json packages/dept/
 COPY packages/sandbox/package.json packages/sandbox/
+COPY packages/mcp/package.json packages/mcp/
 COPY packages/web/package.json packages/web/
 RUN --mount=type=cache,target=/root/.npm \
     npm config set fetch-retries 5 \

@@ -25,6 +25,8 @@ services:
       GATEWAY_ADMIN_TOKEN: ${GATEWAY_ADMIN_TOKEN:?请先运行 scripts/court.sh init 补充 .env}
       CONTROL_TOKEN: ${CONTROL_TOKEN:?请先运行 scripts/court.sh init 生成 .env}
       SANDBOX_TOKEN: ${SANDBOX_TOKEN:?请先运行 scripts/court.sh init 生成 .env}
+      MCP_TOKEN: ${MCP_TOKEN:?请先运行 scripts/court.sh init 补充 .env}
+      MCP_URL: http://mcp:8300
     ports:
       - 127.0.0.1:8001:8001
     volumes:
@@ -135,6 +137,36 @@ services:
       timeout: 5s
       retries: 6
       start_period: 20s
+  mcp:
+    image: court-mcp:latest
+    build:
+      context: .
+      dockerfile: docker/mcp.Dockerfile
+    hostname: mcp
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    environment:
+      PORT: "8300"
+      HUB_URL: http://hub:8000
+      MCP_TOKEN: ${MCP_TOKEN:?请先运行 scripts/court.sh init 补充 .env}
+      MCP_STDIO_RUNNER: docker
+      MCP_BLOCKED_HOSTS: hub,gateway,sandbox,mcp,localhost,127.0.0.1,::1,0.0.0.0,host.docker.internal,gateway.docker.internal,dept-zhengshitang,dept-zhongshu,dept-menxia,dept-shangshu,dept-libu,dept-hubu,dept-libu-rites,dept-bingbu,dept-xingbu,dept-gongbu,dept-yushitai
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - court
+    depends_on: *a1
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8300/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
   dept-zhengshitang:
     image: court-app:latest
     build:
@@ -152,6 +184,7 @@ services:
       CONFIG_DIR: /config
       HUB_URL: http://hub:8000
       GATEWAY_URL: http://gateway:8100
+      MCP_URL: http://mcp:8300
     volumes:
       - ./data/officials:/data/officials
       - ./data/depts/zhengshitang:/data/depts/zhengshitang
@@ -189,6 +222,7 @@ services:
       CONFIG_DIR: /config
       HUB_URL: http://hub:8000
       GATEWAY_URL: http://gateway:8100
+      MCP_URL: http://mcp:8300
     volumes:
       - ./data/officials:/data/officials
       - ./data/depts/zhongshu:/data/depts/zhongshu
@@ -226,6 +260,7 @@ services:
       CONFIG_DIR: /config
       HUB_URL: http://hub:8000
       GATEWAY_URL: http://gateway:8100
+      MCP_URL: http://mcp:8300
     volumes:
       - ./data/officials:/data/officials
       - ./data/depts/menxia:/data/depts/menxia
@@ -263,6 +298,7 @@ services:
       CONFIG_DIR: /config
       HUB_URL: http://hub:8000
       GATEWAY_URL: http://gateway:8100
+      MCP_URL: http://mcp:8300
     volumes:
       - ./data/officials:/data/officials
       - ./data/depts/shangshu:/data/depts/shangshu
@@ -300,6 +336,7 @@ services:
       CONFIG_DIR: /config
       HUB_URL: http://hub:8000
       GATEWAY_URL: http://gateway:8100
+      MCP_URL: http://mcp:8300
     volumes:
       - ./data/officials:/data/officials
       - ./data/depts/libu:/data/depts/libu
@@ -337,6 +374,7 @@ services:
       CONFIG_DIR: /config
       HUB_URL: http://hub:8000
       GATEWAY_URL: http://gateway:8100
+      MCP_URL: http://mcp:8300
     volumes:
       - ./data/officials:/data/officials
       - ./data/depts/hubu:/data/depts/hubu
@@ -374,6 +412,7 @@ services:
       CONFIG_DIR: /config
       HUB_URL: http://hub:8000
       GATEWAY_URL: http://gateway:8100
+      MCP_URL: http://mcp:8300
     volumes:
       - ./data/officials:/data/officials
       - ./data/depts/libu_rites:/data/depts/libu_rites
@@ -411,6 +450,7 @@ services:
       CONFIG_DIR: /config
       HUB_URL: http://hub:8000
       GATEWAY_URL: http://gateway:8100
+      MCP_URL: http://mcp:8300
       SANDBOX_URL: http://sandbox:8200
     volumes:
       - ./data/officials:/data/officials
@@ -452,6 +492,7 @@ services:
       CONFIG_DIR: /config
       HUB_URL: http://hub:8000
       GATEWAY_URL: http://gateway:8100
+      MCP_URL: http://mcp:8300
       SANDBOX_URL: http://sandbox:8200
     volumes:
       - ./data/officials:/data/officials
@@ -493,6 +534,7 @@ services:
       CONFIG_DIR: /config
       HUB_URL: http://hub:8000
       GATEWAY_URL: http://gateway:8100
+      MCP_URL: http://mcp:8300
       SANDBOX_URL: http://sandbox:8200
     volumes:
       - ./data/officials:/data/officials
@@ -534,6 +576,7 @@ services:
       CONFIG_DIR: /config
       HUB_URL: http://hub:8000
       GATEWAY_URL: http://gateway:8100
+      MCP_URL: http://mcp:8300
     volumes:
       - ./data/officials:/data/officials
       - ./data/depts/yushitai:/data/depts/yushitai

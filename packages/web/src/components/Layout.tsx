@@ -63,7 +63,7 @@ const TITLES: [RegExp, string][] = [
   [/^\/exams/, "科举"],
   [/^\/censor/, "御史台"],
   [/^\/feed/, "驿报"],
-  [/^\/settings/, "设置 · 模型提供商"],
+  [/^\/settings/, "设置"],
 ];
 
 type ThemePref = "system" | "light" | "dark";

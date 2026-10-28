@@ -356,3 +356,11 @@ CREATE TABLE IF NOT EXISTS dept_health (
   last_seen INTEGER NOT NULL,
   data_json TEXT
 );
+
+-- ── MCP 服务器（仅配置；env/headers 为密钥原文，只给 broker）──
+CREATE TABLE IF NOT EXISTS mcp_servers (
+  id TEXT PRIMARY KEY,
+  version INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  data_json TEXT NOT NULL            -- McpServerConfig
+);

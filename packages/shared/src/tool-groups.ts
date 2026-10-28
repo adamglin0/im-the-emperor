@@ -33,6 +33,8 @@ export const TOOL_GROUPS = {
   workshop: ["ws_run", "ws_job_status", "ws_job_cancel", "ws_read", "ws_write", "ws_list", "http_fetch", "asset_publish_from_workspace", "asset_import_to_workspace", "tool_inventory"],
   justice: ["task_verify", "bug_report", "bug_list"],
   rites: ["glossary_get", "glossary_update", "style_guide_get"],
+  /** MCP 服务器配置（增删改、授权、测试）；使用 MCP 工具本身不需要此组，按服务器授权范围动态装配 */
+  mcp_admin: ["mcp_list_servers", "mcp_get_server", "mcp_create_server", "mcp_update_server", "mcp_delete_server", "mcp_test_server", "mcp_get_access"],
   censor: ["audit_findings", "audit_update_finding", "audit_search_events", "audit_trace", "audit_logs", "audit_ledger", "impeach", "audit_report"],
 } as const;
 

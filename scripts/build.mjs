@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 生产打包：packages/{hub,gateway,dept,sandbox}/src/main.ts → dist/<name>/main.js（单文件 ESM，打包全部依赖）。
+// 生产打包：packages/{hub,gateway,dept,sandbox,mcp}/src/main.ts → dist/<name>/main.js（单文件 ESM，打包全部依赖）。
 // 用法：node scripts/build.mjs [hub gateway ...]   缺失入口的角色跳过并告警。
 import { build } from "esbuild";
 import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const ALL = ["hub", "gateway", "dept", "sandbox"];
+const ALL = ["hub", "gateway", "dept", "sandbox", "mcp"];
 const wanted = process.argv.slice(2).filter((a) => !a.startsWith("-"));
 const roles = wanted.length ? wanted : ALL;
 

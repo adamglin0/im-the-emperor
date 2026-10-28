@@ -50,7 +50,8 @@ export const rateLimited = (msg: string) => new HubError(429, "rate_limited", ms
 
 /** 请求方身份（auth 中间件解析） */
 export interface Principal {
-  kind: "emperor" | "dept" | "gateway" | "system";
+  /** mcp = MCP 中转站（broker token），只能访问 /api/internal/mcp/* */
+  kind: "emperor" | "dept" | "gateway" | "system" | "mcp";
   dept?: DeptId;
   /** dept 调用时经校验的 acting post（X-Acting-Post） */
   post?: string;
@@ -221,6 +222,10 @@ export interface HubCtx {
   /** 网关管理接口 token（缺省退回 gatewayToken） */
   gatewayAdminToken?: string;
   controlToken: string;
+  /** MCP 中转站（broker）地址；可变（测试/编排可改写） */
+  mcpUrl: string;
+  /** hub ↔ broker 共用密钥（只写入 DATA_DIR/hub/tokens.json） */
+  mcpToken: string;
   now(): number;
   registry: RegistryService;
   events: EventService;
@@ -236,6 +241,7 @@ export interface HubCtx {
   briefing: BriefingService;
   exams: ExamService;
   audit: AuditService;
+  mcp: import("./services/mcp.ts").McpService;
   /** 记录状态迁移（transitions 表 + 事件） */
   transition(subjectType: "edict" | "task" | "deliberation", subjectId: string, from: string, to: string, actor: Address, reason: string, traceId?: string): void;
   statuses(): OfficialStatus[];

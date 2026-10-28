@@ -1,4 +1,4 @@
-// 鉴权与 ACL：解析请求方身份（皇帝/部门/网关/系统），校验 acting post 与工具授权。
+// 鉴权与 ACL：解析请求方身份（皇帝/部门/网关/系统/MCP 中转站），校验 acting post 与工具授权。
 // B 组路由也使用这里导出的 principal / requireActingPost / requireTool / requireEmperor / readJson。
 import type { Context, MiddlewareHandler } from "hono";
 import type { Address } from "@court/shared";
@@ -11,6 +11,8 @@ interface ReqState {
 const states = new WeakMap<Request, ReqState>();
 
 const unauthorized = (msg: string) => new HubError(401, "unauthorized", msg);
+/** MCP 中转站可访问的唯一路径前缀 */
+export const MCP_INTERNAL_PREFIX = "/api/internal/mcp/";
 
 /**
  * 监听模式：
@@ -30,6 +32,7 @@ export function resolvePrincipal(ctx: HubCtx, authorization: string | undefined,
   const token = m[1].trim();
   if (ctx.gatewayToken && token === ctx.gatewayToken) return { kind: "gateway" };
   if (ctx.controlToken && token === ctx.controlToken) return { kind: "system" };
+  if (ctx.mcpToken && token === ctx.mcpToken) return { kind: "mcp" };
   const dept = ctx.registry.deptByToken(token);
   if (!dept) throw unauthorized("token 无效");
   const p: Principal = { kind: "dept", dept };
@@ -52,6 +55,8 @@ export function authMiddleware(ctx: HubCtx, mode: ListenerMode = "emperor"): Mid
     const site = c.req.header("sec-fetch-site");
     const unsafe = c.req.method !== "GET" && c.req.method !== "HEAD";
     if (principal.kind === "emperor" && unsafe && site && site !== "same-origin" && site !== "none") throw forbidden("拒绝跨站请求：请从皇城 Web 页面操作");
+    // MCP 中转站令牌只用于拉取 MCP 配置：其余接口一律拒绝（许多路由只拦网关、对其他身份按皇帝放行）
+    if (principal.kind === "mcp" && !c.req.path.startsWith(MCP_INTERNAL_PREFIX)) throw forbidden(`MCP 中转站令牌只能访问 ${MCP_INTERNAL_PREFIX}*`);
     states.set(c.req.raw, { ctx, principal });
     await next();
   };
@@ -96,7 +101,7 @@ export function requireActingPost(c: Context, bodyPost?: string): string {
     if (!ctx.registry.post(id)) throw bad(`职位 ${claimed} 不存在`);
     return id;
   }
-  throw forbidden("网关不能以官员职位行事");
+  throw forbidden(p.kind === "mcp" ? "MCP 中转站不能以官员职位行事" : "网关不能以官员职位行事");
 }
 
 /** 把 requireActingPost 的结果转为地址（post:x / emperor / system:x） */
@@ -110,6 +115,7 @@ export function requireTool(c: Context, tool: string): void {
   const { ctx, principal: p } = state(c);
   if (p.kind === "emperor" || p.kind === "system") return;
   if (p.kind === "gateway") throw forbidden(`网关无权调用需要工具 ${tool} 的接口`);
+  if (p.kind === "mcp") throw forbidden(`MCP 中转站无权调用需要工具 ${tool} 的接口`);
   if (!p.post) throw forbidden("缺少 X-Acting-Post 请求头");
   if (ctx.registry.hasTool(p.post, tool)) return;
   ctx.events.emit({
@@ -134,6 +140,19 @@ export function requireGateway(c: Context): void {
   if (p.kind !== "gateway" && p.kind !== "system") throw forbidden("此接口仅限 LLM 网关调用");
 }
 
+/**
+ * 仅 MCP 中转站：拉取含密钥的 MCP 全量配置。
+ * 不放行 system：control token 存于部门可读的 shared/tokens.json，不能凭它取密钥。
+ */
+export function requireMcpBroker(c: Context): void {
+  if (principal(c).kind !== "mcp") throw forbidden("此接口仅限 MCP 中转站（broker token）调用");
+}
+
+/** MCP 配置接口拒绝 system 身份（理由同上：control token 部门可读，不得借以绕过审批） */
+export function rejectSystemForMcp(c: Context): void {
+  if (principal(c).kind === "system") throw forbidden("MCP 配置接口不接受 control token；请以陛下或持 mcp_admin 的官员身份调用");
+}
+
 /** 部门调用只能操作本部门职位 */
 export function requireOwnDeptPost(c: Context, postId: string): void {
   const { ctx, principal: p } = state(c);
@@ -141,6 +160,7 @@ export function requireOwnDeptPost(c: Context, postId: string): void {
   if (!def) throw new HubError(404, "not_found", `职位 ${postId} 不存在`);
   if (p.kind === "dept" && def.dept !== p.dept) throw forbidden(`部门 ${p.dept} 不能操作他部职位 ${postId}`);
   if (p.kind === "gateway") throw forbidden("网关无权访问收件箱");
+  if (p.kind === "mcp") throw forbidden("MCP 中转站无权访问收件箱");
 }
 
 /** 读取 JSON 请求体（必须是对象） */

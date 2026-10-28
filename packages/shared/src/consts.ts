@@ -61,5 +61,6 @@ export const DEPT_PORT = 8080;
 export const HUB_PORT = 8000;
 export const GATEWAY_PORT = 8100;
 export const SANDBOX_PORT = 8200;
+export const MCP_PORT = 8300;
 export const TZ = "Asia/Shanghai";
 export const API_VERSION = "1";

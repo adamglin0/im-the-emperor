@@ -1,4 +1,5 @@
-// 进程内起整座朝廷：hub + 网关(mock) + 沙箱 + 11 部门。端到端测试与本地演示共用。
+// 进程内起整座朝廷：hub + 网关(mock) + 沙箱 + MCP 中转站 + 11 部门。端到端测试与本地演示共用。
+import { randomBytes } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -8,6 +9,7 @@ import { createHub, type HubHandle } from "../packages/hub/src/main.ts";
 import { startGateway, type GatewayHandle } from "../packages/gateway/src/server.ts";
 import { startSandbox, type SandboxHandle } from "../packages/sandbox/src/server.ts";
 import { startDept, type DeptHandle } from "../packages/dept/src/main.ts";
+import { startMcp, type McpHandle } from "../packages/mcp/src/server.ts";
 
 export const DEPTS: DeptId[] = ["zhengshitang", "zhongshu", "menxia", "shangshu", "libu", "hubu", "libu_rites", "bingbu", "xingbu", "gongbu", "yushitai"];
 const WORKSHOP_DEPTS = new Set(["bingbu", "gongbu", "xingbu"]);
@@ -28,6 +30,7 @@ export interface Court {
   hub: HubHandle;
   gateway: GatewayHandle;
   sandbox: SandboxHandle;
+  mcp: McpHandle;
   depts: Map<string, DeptHandle>;
   deptPorts: Record<string, number>;
   /** 皇帝客户端（emperor 端口，无 token） */
@@ -65,6 +68,18 @@ export async function startCourt(opts: CourtOptions = {}): Promise<Court> {
   const hub = await createHub({ dataDir, configDir, port: 0, emperorPort: opts.emperorPort ?? 0, hostname: "127.0.0.1", gatewayUrl: `http://127.0.0.1:${gatewayPort}`, gatewayAdminToken: ADMIN_TOKEN, startLoops: true, webDir: opts.webDir });
   const tokensFile = JSON.parse(readFileSync(join(dataDir, "shared", "tokens.json"), "utf8")) as { depts: Record<string, string>; gateway: string; control: string; sandbox: string };
   const sandbox = await startSandbox({ port: 0, hostname: "127.0.0.1", root: join(dataDir, "sandbox"), token: tokensFile.sandbox });
+  // MCP 中转站：默认 local runner（直接起子进程，无需 docker）；MCP_STDIO_RUNNER=docker 可改走容器
+  const mcp = await startMcp({
+    port: 0,
+    hostname: "127.0.0.1",
+    hubUrl: hub.url,
+    token: hub.ctx.mcpToken,
+    runner: process.env.MCP_STDIO_RUNNER === "docker" ? "docker" : "local",
+    blockedHosts: [],
+    // 与正式部署共用宿主 docker 时，启动清理只删本次测试的遗留容器
+    containerOwner: `test-${randomBytes(4).toString("hex")}`,
+  });
+  hub.ctx.mcpUrl = mcp.url;
   const gateway = await startGateway({ port: gatewayPort, hostname: "127.0.0.1", hubUrl: hub.url, dataDir, configDir, mode: opts.mode ?? "mock", tokens: { gateway: tokensFile.gateway, depts: tokensFile.depts, admin: ADMIN_TOKEN } });
 
   const limits = opts.fast ? { minTurnGapMs: 200, wakeDebounceMs: 150, heartbeatMs: 1000, inboxPollMs: 3000 } : undefined;
@@ -79,6 +94,7 @@ export async function startCourt(opts: CourtOptions = {}): Promise<Court> {
       port: deptPorts[d],
       hostname: "127.0.0.1",
       deptUrlOverrides: overrides,
+      mcpUrl: mcp.url,
       limits,
     });
     depts.set(d, h);
@@ -91,6 +107,7 @@ export async function startCourt(opts: CourtOptions = {}): Promise<Court> {
     hub,
     gateway,
     sandbox,
+    mcp,
     depts,
     deptPorts,
     emperor,
@@ -105,6 +122,7 @@ export async function startCourt(opts: CourtOptions = {}): Promise<Court> {
     async close() {
       await Promise.allSettled([...depts.values()].map((h) => h.close()));
       await gateway.close();
+      await mcp.close();
       await sandbox.close();
       await hub.close();
       if (!opts.keepData && !opts.dataDir) rmSync(dataDir, { recursive: true, force: true });

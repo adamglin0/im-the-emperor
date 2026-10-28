@@ -14,8 +14,22 @@ const ARMORY_DEPTS = new Set(["bingbu", "gongbu", "xingbu"]);
 const HUB_URL = "http://hub:8000";
 const GATEWAY_URL = "http://gateway:8100";
 const SANDBOX_URL = "http://sandbox:8200";
+const MCP_URL = "http://mcp:8300";
 const APP_IMAGE = "court-app:latest";
 const SANDBOX_IMAGE = "court-sandbox:latest";
+const MCP_IMAGE = "court-mcp:latest";
+const MCP_TOKEN = "${MCP_TOKEN:?请先运行 scripts/court.sh init 补充 .env}";
+
+const deptHosts = (court.depts ?? []).map((d) => ({
+  id: String(d.id),
+  host: d.host ?? `dept-${String(d.id).replace(/_/g, "-")}`,
+  service: `dept-${String(d.id).replace(/_/g, "-")}`,
+}));
+/**
+ * MCP 中转站禁止经 HTTP 传输访问的主机：朝廷内部服务（含各部门的服务名与主机名）、本机，
+ * 以及 Docker Desktop 的宿主别名（宿主 127.0.0.1:8001 是无 token 的皇帝端口）。
+ */
+const MCP_BLOCKED_HOSTS = [...new Set(["hub", "gateway", "sandbox", "mcp", "localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal", "gateway.docker.internal", ...deptHosts.flatMap((d) => [d.host, d.service])])].join(",");
 
 const healthcheck = (url) => ({
   test: ["CMD", "node", "-e", `fetch('${url}').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))`],
@@ -55,6 +69,9 @@ const services = {
       GATEWAY_ADMIN_TOKEN: "${GATEWAY_ADMIN_TOKEN:?请先运行 scripts/court.sh init 补充 .env}",
       CONTROL_TOKEN: "${CONTROL_TOKEN:?请先运行 scripts/court.sh init 生成 .env}",
       SANDBOX_TOKEN: "${SANDBOX_TOKEN:?请先运行 scripts/court.sh init 生成 .env}",
+      // hub ↔ MCP 中转站共用密钥（只给 hub 与 mcp，不写入部门可读的 shared/tokens.json）
+      MCP_TOKEN,
+      MCP_URL,
     },
     ports: ["127.0.0.1:8001:8001"],
     // 档案库（SQLite WAL）放在独立卷：macOS 上绑定卷的 mmap/锁语义不可靠（init 在 macOS 设 HUB_DB_STORE=hub-db 命名卷）
@@ -118,12 +135,31 @@ const services = {
     pids_limit: 256,
     healthcheck: healthcheck("http://127.0.0.1:8200/health"),
   },
+  // MCP 中转站：为每个 stdio MCP 服务器经宿主 docker 起独立容器（默认 bridge 网络，不入朝廷网络）。
+  // 挂 docker.sock 等同宿主 root：中转站只运行皇帝批准过的配置。
+  mcp: {
+    image: MCP_IMAGE,
+    build: { context: ".", dockerfile: "docker/mcp.Dockerfile" },
+    hostname: "mcp",
+    restart: "unless-stopped",
+    init: true,
+    stop_grace_period: "40s",
+    environment: {
+      PORT: "8300",
+      HUB_URL,
+      MCP_TOKEN,
+      MCP_STDIO_RUNNER: "docker",
+      MCP_BLOCKED_HOSTS,
+    },
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock"],
+    networks: ["court"],
+    depends_on: hubHealthy,
+    healthcheck: healthcheck("http://127.0.0.1:8300/health"),
+  },
 };
 
 for (const d of court.depts ?? []) {
-  const id = String(d.id);
-  const host = d.host ?? `dept-${id.replace(/_/g, "-")}`;
-  const name = `dept-${id.replace(/_/g, "-")}`;
+  const { id, host, service: name } = deptHosts.find((x) => x.id === String(d.id));
   const armory = ARMORY_DEPTS.has(id);
   services[name] = app({
     hostname: host,
@@ -135,6 +171,7 @@ for (const d of court.depts ?? []) {
       CONFIG_DIR: "/config",
       HUB_URL,
       GATEWAY_URL,
+      MCP_URL,
       ...(armory ? { SANDBOX_URL } : {}),
     },
     // 部门只挂：官员数据（会话/记忆/日志）、本部门 outbox/cursor、共享 token（只读）

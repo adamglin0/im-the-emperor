@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import type { AddressInfo } from "node:net";
 import { serve, type ServerType } from "@hono/node-server";
 import type { Hono } from "hono";
-import { LIMITS, loadCourtConfig, loadModelsConfig, HUB_PORT } from "@court/shared";
+import { LIMITS, loadCourtConfig, loadModelsConfig, HUB_PORT, MCP_PORT } from "@court/shared";
 import { Db } from "./db.ts";
 import type { HubCtx } from "./ctx.ts";
 import { buildApp } from "./app.ts";
@@ -25,6 +25,7 @@ import { createWorkflow } from "./services/workflow.ts";
 import { createBriefing } from "./services/briefing.ts";
 import { createExams } from "./services/exams.ts";
 import { createAudit } from "./services/audit.ts";
+import { createMcp } from "./services/mcp.ts";
 
 export interface CreateHubOptions {
   dataDir: string;
@@ -37,6 +38,8 @@ export interface CreateHubOptions {
   gatewayUrl?: string;
   /** 网关管理接口 token（缺省读环境变量 GATEWAY_ADMIN_TOKEN，再缺省退回网关 token） */
   gatewayAdminToken?: string;
+  /** MCP 中转站地址（缺省读环境变量 MCP_URL，再缺省 http://mcp:8300）；启动后可改 ctx.mcpUrl */
+  mcpUrl?: string;
   webDir?: string;
   now?: () => number;
   /** 是否启动后台循环（调度器、看门狗、稽查、考场、备份、清理）；测试传 false */
@@ -64,10 +67,13 @@ const BACKUP_KEEP = 7;
 const BUDGET_ALERT_RETENTION_MS = 2 * 86_400_000;
 /** 皇帝/Web 端口默认值 */
 export const EMPEROR_PORT = 8001;
+const DEFAULT_MCP_URL = `http://mcp:${MCP_PORT}`;
 
 /** 装配 HubCtx：先建空对象，再逐个挂服务（服务之间经 ctx 惰性互引；注册类依赖须按序） */
-export function assembleCtx(base: Pick<HubCtx, "db" | "court" | "modelsCfg" | "dataDir" | "gatewayUrl" | "gatewayToken" | "controlToken" | "now"> & { gatewayAdminToken?: string }): HubCtx {
-  const ctx = { ...base } as HubCtx;
+export function assembleCtx(
+  base: Pick<HubCtx, "db" | "court" | "modelsCfg" | "dataDir" | "gatewayUrl" | "gatewayToken" | "controlToken" | "now"> & { gatewayAdminToken?: string; mcpUrl?: string; mcpToken?: string },
+): HubCtx {
+  const ctx = { ...base, mcpUrl: base.mcpUrl ?? DEFAULT_MCP_URL, mcpToken: base.mcpToken ?? "" } as HubCtx;
   ctx.transition = createTransition(ctx);
   ctx.statuses = createStatuses(ctx);
   ctx.events = createEvents(ctx);
@@ -84,6 +90,7 @@ export function assembleCtx(base: Pick<HubCtx, "db" | "court" | "modelsCfg" | "d
   ctx.briefing = createBriefing(ctx);
   ctx.exams = createExams(ctx);
   ctx.audit = createAudit(ctx);
+  ctx.mcp = createMcp(ctx); // 依赖 approvals.onApprove/onReject
   return ctx;
 }
 
@@ -154,6 +161,8 @@ export async function createHub(opts: CreateHubOptions): Promise<HubHandle> {
     gatewayToken: tokens.gateway,
     gatewayAdminToken: opts.gatewayAdminToken ?? (process.env.GATEWAY_ADMIN_TOKEN || undefined),
     controlToken: tokens.control,
+    mcpUrl: opts.mcpUrl ?? (process.env.MCP_URL || DEFAULT_MCP_URL),
+    mcpToken: tokens.mcp,
     now: opts.now ?? Date.now,
   });
   seed(ctx, tokens);

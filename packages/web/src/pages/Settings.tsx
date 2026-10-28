@@ -1,18 +1,20 @@
-// 设置：模型提供商（pi-ai 内置 / 自定义 / 旧式）——凭据经网关交互式登录存入，密钥永不回传
+// 设置：页签「模型提供商」（pi-ai 内置 / 自定义 / 旧式；凭据经网关交互式登录存入，密钥永不回传）｜「MCP 工具」
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import type { CustomProviderSpec, ProviderAuthType, ProviderInfo, ProviderLoginEvent, ProviderLoginSession, ProviderModelInfo, ProviderTestRes } from "@court/shared/api";
 import { errorText, hub } from "../api/client.ts";
 import { Card, PageHead, Stat } from "../components/Card.tsx";
 import { Drawer, Modal, useConfirm } from "../components/Overlay.tsx";
 import { Seal } from "../components/Seal.tsx";
 import { Empty, ErrorBox, Loading, QueryView } from "../components/States.tsx";
+import { Tabs } from "../components/Tabs.tsx";
 import { Tag } from "../components/Tag.tsx";
 import { useToast } from "../components/Toast.tsx";
 import { useAction } from "../hooks/useAction.ts";
 import { useQuery } from "../hooks/useQuery.ts";
 import { fmtAgo, fmtDateTime, fmtDuration, fmtTokens } from "../lib/format.ts";
 import type { Tone } from "../lib/labels.ts";
+import { McpPanel } from "./settings/McpPanel.tsx";
 import "../styles/pages/settings.css";
 
 const KIND: Record<ProviderInfo["kind"], { label: string; tone: Tone }> = {
@@ -64,7 +66,38 @@ interface LoginTarget {
   session: ProviderLoginSession;
 }
 
+type SettingsTab = "providers" | "mcp";
+const LEDE: Record<SettingsTab, string> = {
+  providers: "模型提供商：配置凭据、测试连通、浏览模型目录、选入科举。",
+  mcp: "MCP 工具：接入外部 MCP 服务器，授权给所有人、某部门或某官员；获授者下一轮即可调用其工具。",
+};
+
 export default function SettingsPage() {
+  const [sp, setSp] = useSearchParams();
+  const tab: SettingsTab = sp.get("tab") === "mcp" ? "mcp" : "providers";
+  const setTab = (k: SettingsTab) => {
+    const next = new URLSearchParams(sp);
+    if (k === "providers") next.delete("tab");
+    else next.set("tab", k);
+    setSp(next, { replace: true });
+  };
+  return (
+    <div className="page settings-page">
+      <PageHead title="设置" lede={LEDE[tab]} />
+      <Tabs<SettingsTab>
+        tabs={[
+          { key: "providers", label: "模型提供商" },
+          { key: "mcp", label: "MCP 工具" },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
+      {tab === "mcp" ? <McpPanel /> : <ProvidersPanel />}
+    </div>
+  );
+}
+
+function ProvidersPanel() {
   const q = useQuery(() => hub.providers(), [], { watch: ["provider."], interval: 60_000 });
   const { run, pending } = useAction();
   const confirm = useConfirm();
@@ -127,8 +160,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="page settings-page">
-      <PageHead title="设置" lede="模型提供商：配置凭据、测试连通、浏览模型目录、选入科举。" />
+    <>
       <div className="set-note">
         <Seal text="密" tone="gold" size={24} />
         <div className="grow">
@@ -213,7 +245,7 @@ export default function SettingsPage() {
       {testing && <TestModal p={testing} onClose={() => setTesting(null)} />}
       {browsing && <ModelsDrawer p={browsing} onClose={() => setBrowsing(null)} />}
       {editing && <CustomProviderModal initial={editing === "new" ? null : editing} all={list} onClose={() => setEditing(null)} onSaved={q.reload} />}
-    </div>
+    </>
   );
 }
 

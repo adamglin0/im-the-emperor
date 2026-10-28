@@ -42,6 +42,8 @@ import type {
 } from "@court/shared/types";
 import { EXAM_DIMENSIONS } from "@court/shared/types";
 import type { ConfigHistoryRow, CustomProviderSpec, HubClient, LedgerSummaryRow, ProviderAuthType, ProviderInfo, ProviderLoginSession, ProviderModelInfo, SendMessageRes } from "@court/shared/api";
+import type { McpServerConfig, McpServerInput, McpServerStatus, McpTarget, McpTestRes, McpToolInfo, McpWriteMeta } from "@court/shared/mcp";
+import { MCP_DEFAULT_IMAGE, MCP_ID_RE, MCP_LIMITS, mcpMatchTargets, mcpTargetKey, toMcpServerView } from "@court/shared/mcp";
 import { ApiError } from "../api/client.ts";
 import { live, type LogLine } from "../api/live.ts";
 import { streamSource } from "../api/events.tsx";
@@ -1190,6 +1192,127 @@ function fakeLog(post: string): LogLine[] {
 const delay = <T>(v: T, ms = 120): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), ms));
 const notFound = (what: string) => Promise.reject(Object.assign(new Error(`${what} 不存在`), { status: 404, code: "not_found" }));
 
+
+// ───────────────────────── MCP 工具（设置页） ─────────────────────────
+const mt = (name: string, description: string, props: string[] = []): McpToolInfo => ({
+  name,
+  description,
+  input_schema: { type: "object", properties: Object.fromEntries(props.map((p) => [p, { type: "string" }])) },
+});
+const fxMcpTools: Record<string, McpToolInfo[]> = {
+  github: [
+    mt("search_repositories", "按关键词搜索 GitHub 仓库", ["query", "page"]),
+    mt("get_file_contents", "读取仓库中某文件的内容", ["owner", "repo", "path"]),
+    mt("create_issue", "在仓库中新建 issue", ["owner", "repo", "title", "body"]),
+    mt("list_pull_requests", "列出仓库的拉取请求", ["owner", "repo", "state"]),
+  ],
+  fetch: [mt("fetch", "抓取网页并转为 Markdown，可分段读取长页面", ["url", "max_length", "start_index"])],
+  sqlite: [mt("read_query", "执行只读 SQL 查询", ["query"]), mt("list_tables", "列出数据库中的表"), mt("describe_table", "查看表结构", ["table_name"])],
+};
+const fxMcp: McpServerConfig[] = [
+  {
+    id: "github",
+    name: "GitHub",
+    description: "检索仓库、读文件、提 issue。工部营造与刑部核验用。",
+    transport: "streamable_http",
+    enabled: true,
+    targets: [{ kind: "dept", id: "gongbu" }, { kind: "official", id: "of_xingbu_shilang" }],
+    tool_allow: ["search_repositories", "get_file_contents", "list_pull_requests"],
+    timeout_seconds: 60,
+    url: "https://api.githubcopilot.com/mcp/",
+    headers: { Authorization: "Bearer ghp_fixture" },
+    version: 3,
+    created_at: ago(60 * 24 * 2),
+    updated_at: ago(90),
+    updated_by: "emperor",
+  },
+  {
+    id: "fetch",
+    name: "网页抓取",
+    description: "抓取公开网页转为 Markdown。",
+    transport: "stdio",
+    enabled: true,
+    targets: [{ kind: "all" }],
+    image: "ghcr.io/astral-sh/uv:python3.12-bookworm-slim",
+    command: "uvx",
+    args: ["mcp-server-fetch"],
+    env: {},
+    network: "bridge",
+    memory_mb: 512,
+    cpus: 1,
+    version: 1,
+    created_at: ago(60 * 24),
+    updated_at: ago(60 * 24),
+    updated_by: "emperor",
+  },
+  {
+    id: "maps",
+    name: "地图",
+    description: "地理编码与路线规划。",
+    transport: "stdio",
+    enabled: true,
+    targets: [{ kind: "dept", id: "bingbu" }, { kind: "dept", id: "hubu" }],
+    image: MCP_DEFAULT_IMAGE,
+    command: "npx",
+    args: ["-y", "@modelcontextprotocol/server-google-maps"],
+    env: { GOOGLE_MAPS_API_KEY: "fixture" },
+    network: "bridge",
+    memory_mb: 768,
+    cpus: 1,
+    version: 2,
+    created_at: ago(300),
+    updated_at: ago(40),
+    updated_by: "emperor",
+  },
+  {
+    id: "sqlite",
+    name: "户籍库",
+    description: "只读查询户部户籍 SQLite。",
+    transport: "stdio",
+    enabled: false,
+    targets: [{ kind: "official", id: "of_hubu_duzhi_langzhong" }],
+    image: "ghcr.io/astral-sh/uv:python3.12-bookworm-slim",
+    command: "uvx",
+    args: ["mcp-server-sqlite", "--db-path", "/tmp/huji.db"],
+    env: {},
+    network: "none",
+    memory_mb: 256,
+    cpus: 0.5,
+    version: 5,
+    created_at: ago(60 * 24 * 5),
+    updated_at: ago(60 * 6),
+    updated_by: "post:hubu.shangshu",
+  },
+];
+const fxMcpRuntime: Record<string, { state: McpServerStatus["state"]; error?: string; calls: number }> = {
+  github: { state: "ready", calls: 37 },
+  fetch: { state: "ready", calls: 112 },
+  maps: { state: "error", error: "docker: Error response from daemon: pull access denied for node:24-slim, repository does not exist or may require 'docker login'\n(stderr) npm ERR! 404 Not Found", calls: 0 },
+};
+function fxMcpStatus(c: McpServerConfig): McpServerStatus {
+  if (!c.enabled) return { id: c.id, version: c.version, state: "disabled" };
+  const rt = fxMcpRuntime[c.id] ?? { state: "idle", calls: 0 };
+  const tools = (fxMcpTools[c.id] ?? []).filter((t) => !c.tool_allow?.length || c.tool_allow.includes(t.name));
+  return {
+    id: c.id,
+    version: c.version,
+    state: rt.state,
+    error: rt.error,
+    tool_count: rt.state === "ready" ? tools.length : undefined,
+    container: c.transport === "stdio" && rt.state === "ready" ? `court-mcp-${c.id}-a1b2c3` : undefined,
+    connected_at: rt.state === "ready" ? ago(30) : undefined,
+    calls: rt.calls,
+    errors: rt.calls ? 1 : 0,
+  };
+}
+/** 草稿测试：url/命令里含 fail 则不通；否则按 id/命令猜一组工具 */
+function fxMcpTest(c: Partial<McpServerConfig>): McpTestRes {
+  const sig = `${c.url ?? ""} ${c.command ?? ""} ${(c.args ?? []).join(" ")}`;
+  if (/fail|bad/i.test(sig)) return { ok: false, error: c.transport === "stdio" ? "进程退出（code 1）：npm ERR! 404 Not Found - GET https://registry.npmjs.org/fail" : "HTTP 401 Unauthorized", tools: [], duration_ms: 1840 };
+  const key = Object.keys(fxMcpTools).find((k) => sig.includes(k) || c.id === k) ?? "fetch";
+  return { ok: true, server_info: { name: `${key}-mcp`, version: "1.4.2" }, tools: fxMcpTools[key], duration_ms: c.transport === "stdio" ? 2630 : 410 };
+}
+
 function emit(e: Omit<CourtEvent, "id" | "uid" | "ts">) {
   const x: CourtEvent = { id: evId++, uid: uid("ev"), ts: Date.now(), ...e };
   allEvents.push(x);
@@ -1658,6 +1781,111 @@ export function installFixtures(hub: HubClient) {
     if (!model && !p.allow_unlisted) return delay({ ok: false, listed: false, configured: v.configured, reason: `${p.name} 不许目录外模型 ID：${model_id}` });
     if (!v.configured) return delay({ ok: false, listed: !!model, configured: false, model, reason: `${p.name} 尚未配置凭据（请于设置页登录或设置环境变量）` });
     return delay({ ok: true, listed: !!model, configured: true, model });
+  });
+
+  // MCP 工具
+  const mcpFind = (id: string) => fxMcp.find((x) => x.id === id);
+  const mcpEvt = (type: string, id: string, summary: string) => emit({ type, actor: "emperor", subject_type: "mcp_server", subject_id: id, summary });
+  const mergeSecrets = (old: Record<string, string> | undefined, next: Record<string, string | null> | undefined) =>
+    next === undefined ? old : Object.fromEntries(Object.entries(next).map(([k, v]) => [k, v === null ? (old?.[k] ?? "") : v]));
+  const applyMcp = (c: McpServerConfig, r: McpServerInput) => {
+    for (const k of ["name", "description", "transport", "enabled", "targets", "tool_allow", "timeout_seconds", "url", "image", "command", "args", "network", "memory_mb", "cpus"] as const) {
+      if (r[k] !== undefined) (c as any)[k] = r[k];
+    }
+    c.headers = mergeSecrets(c.headers, r.headers);
+    c.env = mergeSecrets(c.env, r.env);
+    if (c.transport === "stdio") {
+      c.url = undefined;
+      c.headers = undefined;
+      c.image ||= MCP_DEFAULT_IMAGE;
+    } else {
+      for (const k of ["image", "command", "args", "env", "network", "memory_mb", "cpus"] as const) delete c[k];
+    }
+    if (c.targets) {
+      const seen = new Set<string>();
+      c.targets = c.targets.filter((t: McpTarget) => !seen.has(mcpTargetKey(t)) && !!seen.add(mcpTargetKey(t)));
+    }
+  };
+  const validMcp = (c: McpServerConfig): string | null => {
+    if (!c.name?.trim() || c.name.length > 60) return "名称须 1–60 字";
+    if (c.transport === "streamable_http" && !/^https?:\/\//.test(c.url ?? "")) return "url 须为 http/https";
+    if (c.transport === "stdio" && !c.command) return "command 不得为空";
+    return null;
+  };
+  set("mcpServers", () => delay(fxMcp.map(toMcpServerView).sort((a, b) => a.id.localeCompare(b.id))));
+  set("mcpServer", (id: string) => {
+    const c = mcpFind(id);
+    return c ? delay(toMcpServerView(c)) : notFound("MCP 服务器");
+  });
+  set("createMcpServer", (r: McpServerInput & McpWriteMeta) => {
+    if (!r.id || !MCP_ID_RE.test(r.id)) return badReq("id 不合法");
+    if (mcpFind(r.id)) return badReq(`MCP 服务器 ${r.id} 已存在`, 409);
+    if (fxMcp.length >= MCP_LIMITS.maxServers) return badReq("服务器已达上限");
+    const c: McpServerConfig = { id: r.id, name: "", description: "", transport: "streamable_http", enabled: true, targets: [], version: 1, created_at: Date.now(), updated_at: Date.now(), updated_by: "emperor" };
+    applyMcp(c, r);
+    const bad = validMcp(c);
+    if (bad) return badReq(bad);
+    fxMcp.push(c);
+    fxMcpRuntime[c.id] = { state: c.enabled ? "ready" : "idle", calls: 0 };
+    mcpEvt("mcp.created", c.id, `新增 MCP 服务器 ${c.name}`);
+    return delay({ status: "applied" as const, server: toMcpServerView(c) }, 300);
+  });
+  set("updateMcpServer", (id: string, r: McpServerInput & McpWriteMeta) => {
+    const c = mcpFind(id);
+    if (!c) return notFound("MCP 服务器");
+    if (r.expected_version !== undefined && r.expected_version !== c.version) return badReq(`版本已变（现为 v${c.version}），请刷新后重改`, 409);
+    const next = structuredClone(c);
+    applyMcp(next, r);
+    const bad = validMcp(next);
+    if (bad) return badReq(bad);
+    Object.assign(c, next, { version: c.version + 1, updated_at: Date.now(), updated_by: "emperor" });
+    if (c.enabled && !fxMcpRuntime[id]) fxMcpRuntime[id] = { state: "ready", calls: 0 };
+    mcpEvt("mcp.updated", id, r.enabled !== undefined && Object.keys(r).length <= 2 ? `${r.enabled ? "启用" : "停用"} MCP 服务器 ${c.name}` : `修改 MCP 服务器 ${c.name}`);
+    return delay({ status: "applied" as const, server: toMcpServerView(c) }, 250);
+  });
+  set("deleteMcpServer", (id: string) => {
+    const i = fxMcp.findIndex((x) => x.id === id);
+    if (i < 0) return notFound("MCP 服务器");
+    fxMcp.splice(i, 1);
+    delete fxMcpRuntime[id];
+    mcpEvt("mcp.deleted", id, `删除 MCP 服务器 ${id}`);
+    return delay({ status: "deleted" as const, id });
+  });
+  set("testMcpServer", (id: string) => {
+    const c = mcpFind(id);
+    if (!c) return notFound("MCP 服务器");
+    const rt = fxMcpRuntime[id];
+    if (rt?.state === "error") return delay<McpTestRes>({ ok: false, error: rt.error, tools: [], duration_ms: 5200 }, 900);
+    const res = fxMcpTest(c);
+    if (res.ok) res.tools = res.tools.filter((t) => !c.tool_allow?.length || c.tool_allow.includes(t.name));
+    return delay(res, 700);
+  });
+  set("testMcpDraft", (r: { base_id?: string; server: McpServerInput }) => {
+    const base = r.base_id ? mcpFind(r.base_id) : undefined;
+    const draft = structuredClone(base ?? ({ id: r.server.id ?? "draft", targets: [] } as unknown as McpServerConfig));
+    applyMcp(draft, r.server);
+    const bad = validMcp(draft);
+    if (bad) return badReq(bad);
+    return delay(fxMcpTest(draft), 900);
+  });
+  set("restartMcpServer", (id: string) => {
+    const c = mcpFind(id);
+    if (!c) return notFound("MCP 服务器");
+    if (fxMcpRuntime[id]?.state === "error" && !/fail/.test(c.args?.join(" ") ?? "")) fxMcpRuntime[id] = { state: "ready", calls: 0 };
+    emit({ type: "mcp.restarted", actor: "emperor", subject_type: "mcp_server", subject_id: id, summary: `重连 MCP 服务器 ${c.name}` });
+    return delay(fxMcpStatus(c), 800);
+  });
+  set("mcpStatus", () => delay(fxMcp.map(fxMcpStatus)));
+  set("mcpAccess", (post: string) => {
+    const p = posts.find((x) => x.post_id === post);
+    if (!p) return notFound("职位");
+    const o = officialOf(post);
+    const who = { dept: p.dept, official_id: o?.official_id };
+    return delay({
+      post_id: post,
+      official_id: o?.official_id,
+      servers: fxMcp.filter((c) => c.enabled).map((c) => ({ id: c.id, name: c.name, via: mcpMatchTargets(c.targets, who) })).filter((x) => x.via.length > 0),
+    });
   });
   // 稽查
   set("auditFindings", (q?: { status?: string; subject?: string }) => delay(findings.filter((f) => (!q?.status || f.status === q.status) && (!q?.subject || f.subject === q.subject))));

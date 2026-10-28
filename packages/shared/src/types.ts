@@ -402,7 +402,7 @@ export interface Notification {
 
 export interface Approval {
   id: string;
-  type: "config_change" | "personnel" | "schedule" | "asset_access" | "budget" | "new_official";
+  type: "config_change" | "personnel" | "schedule" | "asset_access" | "budget" | "new_official" | "mcp_config";
   payload: Record<string, unknown>;
   requested_by: Address;
   status: "pending" | "approved" | "rejected";
